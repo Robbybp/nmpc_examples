@@ -3,7 +3,7 @@
 \setcounter{secnumdepth}{0}
 \setlength{\parindent}{0pt}
 
-\newcommand{\RP}{\vspace{0.5cm}RP\hrule}
+\newcommand{\RP}{\vspace{0.5cm}RP\hrule\vspace{0.5cm}}
 
 \title{Implementing data structures for dynamic optimization and examples}
 
@@ -35,7 +35,13 @@ NMPC tests:
   \item \texttt{test\_run\_iterations}
     \begin{itemize}
       \item Same tests as above, but runs ten NMPC steps instead of one
-    \end{itemize}<++>
+    \end{itemize}
 \end{itemize}
+These tests seem very reasonable. But they do involve some Caprese-specific data
+structures, like \texttt{plant\_df} and \texttt{nmpc.controller.mod}.
+I should copy the functionality of the tests while scrapping the Caprese
+objects, i.e. copy KH's model and re-implement his NMPC problem from scratch
+with my own data structures.
+Hopefully thsi is not too difficult\ldots
 
 \end{document}

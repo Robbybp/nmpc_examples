@@ -1,0 +1,41 @@
+\documentclass{article}
+
+\setcounter{secnumdepth}{0}
+\setlength{\parindent}{0pt}
+
+\newcommand{\RP}{\vspace{0.5cm}RP\hrule}
+
+\title{Implementing data structures for dynamic optimization and examples}
+
+\begin{document}
+\maketitle
+
+\section{Jan 20, 2022}
+
+\RP
+Want to make an NMPC script for Kuan-Han's CSTR example that doesn't use
+Caprese. Need to make sure I pass the same tests he has written.
+What is Kuan-Han testing in the simulation and NMPC scripts?
+
+NMPC tests:
+\begin{itemize}
+  \item Tests controller setup.
+    \begin{itemize}
+      \item  Tests initial conditions of plant
+      \item  and all values in controller model
+    \end{itemize}
+  \item \texttt{test\_solve\_first\_control\_NLP}
+    \begin{itemize}
+      \item Tests values at time 2.0 in controller model
+      \item Tests value of \texttt{Tjinb} at position two in the controller
+        dataframe.
+      \item Tests values of plant at time 2.0
+      \item Tests values in plant dataframe at position two
+    \end{itemize}
+  \item \texttt{test\_run\_iterations}
+    \begin{itemize}
+      \item Same tests as above, but runs ten NMPC steps instead of one
+    \end{itemize}<++>
+\end{itemize}
+
+\end{document}

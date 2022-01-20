@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name="nmpc_prototype",
+    name="nmpc_examples",
     description=(
         "Prototyping data structures for rolling-horizon dynamic "
         "optimization."
@@ -9,5 +9,5 @@ setup(
     author="Robert Parker",
     author_email="rparker1@andrew.cmu.edu",
     license="BSD-3",
-    packages=["nmpc_prototype"],
+    packages=["nmpc_examples"],
 )

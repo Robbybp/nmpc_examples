@@ -13,4 +13,4 @@
 
 from .model import make_model
 from .run_simulation import run_simulation
-from .run_nmpc import run_nmpc
+from .run_nmpc import set_up_controller, run_nmpc

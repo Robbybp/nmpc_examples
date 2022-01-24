@@ -123,8 +123,9 @@ def make_model(horizon=10, ntfe=5, ntcp=3, steady=False, bounds=False):
     # Set initialize values for IndexedVar with string index
     m.Tall[:, "T"] = 3.92E+02
     m.Tall[:, "Tj"] = 3.78E+02
-    m.Talldot[:, "T"] = 5.19E+03
-    m.Talldot[:, "Tj"] = -9.7E+02
+    if not steady:
+        m.Talldot[:, "T"] = 5.19E+03
+        m.Talldot[:, "Tj"] = -9.7E+02
     
     #Set initial conditions for states
     if not steady:

@@ -3,12 +3,48 @@
 \setcounter{secnumdepth}{0}
 \setlength{\parindent}{0pt}
 
-\newcommand{\RP}{\vspace{0.5cm}RP\hrule\vspace{0.5cm}}
+\newcommand{\RP}{\vspace{0.5cm}RP\vspace{0.2cm}\hrule\vspace{0.2cm}}
 
 \title{Implementing data structures for dynamic optimization and examples}
 
 \begin{document}
 \maketitle
+
+\section{Jan 24, 2022}
+
+\RP
+First thing I need to do is see exactly what KH is doing (and testing) in his
+NMPC simulation, so I can recreate it.
+
+To recreate KH's tests, it looks like I need to be able to get plant
+and controller data at the end of any particular sample.
+In what format should my NMPC routine return ``predicted controller data?''
+Probably the same format that it returns plant data. But instead of updating
+the controller data with the entire controller model, I should update
+with only the first sample.
+
+\medskip
+
+There are differences between my and Kuan-Han's objective functions.
+He has a different target for \texttt{Tall[*,Tj]}, and penalizes
+\texttt{Tjinb}, which I do not.
+I also penalize values at all time points, while he only penalizes
+them at sample points.
+
+\medskip
+
+NMPC seems to be working with KH's CSTR. I still need to test that the values
+resulting from the solves are reasonable.
+
+\vspace{0.5cm}\hrule\vspace{0.2cm}
+
+\textbf{Aside:} Every time I go about setting up an NMPC script, I am surprised
+about how long it takes me. This by itself is motivation enough for an NMPC
+toolkit.
+What parts take the longest? -- The data management. A small part of which is
+passing data back and forth between plant and controller.
+
+\vspace{0.2cm}\hrule\vspace{0.5cm}
 
 \section{Jan 21, 2022}
 

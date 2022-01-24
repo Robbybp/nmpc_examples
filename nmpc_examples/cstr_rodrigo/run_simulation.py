@@ -23,15 +23,6 @@ def run_simulation(
         ntfe=5,
         ntcp=3,
         ):
-    # Simulation.
-    # We need to:
-    # - make model
-    # - define input sequence
-    # - initialize emtpy simulation data
-    # In loop:
-    # - load inputs into model
-    # - solve model
-    # - extend data structure with data from model
     horizon = horizon
     m = make_model(
         horizon=horizon,

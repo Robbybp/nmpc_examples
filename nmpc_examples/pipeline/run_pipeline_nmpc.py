@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 from pyomo.dae.flatten import flatten_dae_components
 
-from nmpc_examples.simple_pipeline.pipeline_model import make_model
+from nmpc_examples.pipeline.pipeline_model import make_model
 
 from workspace.common.dynamic_data import (
     find_nearest_index,

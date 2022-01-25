@@ -1,6 +1,6 @@
 import pyomo.common.unittest as unittest
 
-from nmpc_examples.simple_pipeline.run_pipeline_simulation import (
+from nmpc_examples.pipeline.run_pipeline_simulation import (
     run_simulation,
 )
 

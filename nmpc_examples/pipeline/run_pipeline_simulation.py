@@ -3,7 +3,7 @@ from pyomo.dae.flatten import flatten_dae_components
 
 import idaes.core as idaes
 
-from nmpc_examples.simple_pipeline.pipeline_model import (
+from nmpc_examples.pipeline.pipeline_model import (
     make_model,
     get_simulation_inputs,
 )

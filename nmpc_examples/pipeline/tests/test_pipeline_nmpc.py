@@ -1,6 +1,6 @@
 import pyomo.common.unittest as unittest
 
-from nmpc_examples.simple_pipeline.run_pipeline_nmpc import run_nmpc
+from nmpc_examples.pipeline.run_pipeline_nmpc import run_nmpc
 
 class TestPipelineNMPC(unittest.TestCase):
 

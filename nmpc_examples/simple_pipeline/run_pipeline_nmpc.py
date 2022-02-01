@@ -3,11 +3,13 @@ from pyomo.dae.flatten import flatten_dae_components
 
 from nmpc_examples.simple_pipeline.pipeline_model import make_model
 
-from workspace.common.dynamic_data import (
+from nmpc_examples.nmpc.dynamic_data import (
     find_nearest_index,
     interval_data_from_time_series,
     load_inputs_into_model,
-    get_tracking_cost_expression,
+)
+from nmpc_examples.nmpc import (
+    get_tracking_cost_from_constant_setpoint,
 )
 
 from nmpc_examples.nmpc.model_linker import DynamicVarLinker
@@ -78,6 +80,9 @@ def run_nmpc(
     #    for var in setpoint_dae_vars
     #}
     setpoint_data = m_setpoint_helper.get_data_at_time()
+    #setpoint_data = {
+    #    str(pyo.ComponentUID(name)): val for name, val in setpoint_data.items()
+    #}
 
     #
     # Load initial inputs into steady model for initial conditions
@@ -183,7 +188,11 @@ def run_nmpc(
         "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
         "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
     }
-    m_controller.tracking_cost = get_tracking_cost_expression(
+    #weight_data = {
+    #    # Process keys with CUID for consistency of string representation
+    #    str(pyo.ComponentUID(name)): val for name, val in weight_data.items()
+    #}
+    m_controller.tracking_cost = get_tracking_cost_from_constant_setpoint(
         tracking_variables,
         m_controller.fs.time,
         setpoint_data,

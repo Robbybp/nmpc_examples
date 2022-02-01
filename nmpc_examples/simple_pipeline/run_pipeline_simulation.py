@@ -8,7 +8,7 @@ from nmpc_examples.simple_pipeline.pipeline_model import (
     get_simulation_inputs,
 )
 
-from workspace.common.dynamic_data import (
+from nmpc_examples.nmpc.dynamic_data import (
     find_nearest_index,
     interval_data_from_time_series,
     load_inputs_into_model,

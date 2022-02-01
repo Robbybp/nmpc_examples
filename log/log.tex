@@ -10,6 +10,23 @@
 \begin{document}
 \maketitle
 
+\section{Feb 1, 2022}
+
+\RP
+Where was I?
+Pipeline NMPC, using some classes for passing data around.
+Right now my tests fail because the \texttt{nmpc\_examples} code relies on
+workspace \texttt{dynamic\_data}, which changed how strings get generated in
+the tracking cost expression function.
+I need to fix this by not relying on code from workspace, then I can go through
+the simulation and NMPC scripts and remove code using some sort of
+\texttt{DynamicModelSerializer} class that uses CUIDs as keys.
+
+I can actually get the tests working just by passing strings through CUID before
+sending to the tracking cost expression function.
+Now I can copy the \texttt{dynamic\_data} code out of IDAES and update my imports.
+This has been done.
+
 \section{Jan 24, 2022}
 
 \RP

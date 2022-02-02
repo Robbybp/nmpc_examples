@@ -2,7 +2,6 @@ from pyomo.dae.flatten import flatten_dae_components
 from pyomo.core.base.var import Var
 from pyomo.core.base.componentuid import ComponentUID
 
-# TODO: Something like a "DynamicModelLinker"
 
 class DynamicModelHelper(object):
 

@@ -72,17 +72,7 @@ def run_nmpc(
     # Extract data from setpoint model
     #
     m_setpoint_helper = DynamicModelHelper(m_setpoint, m_setpoint.fs.time)
-    #setpoint_scalar_vars, setpoint_dae_vars = flatten_dae_components(
-    #    m_setpoint, m_setpoint.fs.time, pyo.Var
-    #)
-    #setpoint_data = {
-    #    str(pyo.ComponentUID(var.referent)): var[t0].value
-    #    for var in setpoint_dae_vars
-    #}
     setpoint_data = m_setpoint_helper.get_data_at_time()
-    #setpoint_data = {
-    #    str(pyo.ComponentUID(name)): val for name, val in setpoint_data.items()
-    #}
 
     #
     # Load initial inputs into steady model for initial conditions
@@ -100,48 +90,38 @@ def run_nmpc(
     # Extract data from steady state model
     #
     # TODO: Should have an optional argument for flattened variables
+    # ^Forget what I mean by this. Am I talking about extracting a variable
+    # subset?
     m_steady_helper = DynamicModelHelper(m_steady, m_steady.fs.time)
     initial_data = m_steady_helper.get_data_at_time(t0)
     scalar_data = m_steady_helper.get_scalar_data()
-    #steady_scalar_vars, steady_dae_vars = flatten_dae_components(
-    #    m_steady, m_steady.fs.time, pyo.Var
-    #)
-    #initial_data = {
-    #    str(pyo.ComponentUID(var.referent)): var[t0].value
-    #    for var in steady_dae_vars
-    #}
-    #scalar_data = {
-    #    str(pyo.ComponentUID(var)): var.value for var in steady_scalar_vars
-    #}
 
     #
     # Load data into dynamic model
     #
 
-    # If I want to use DynamicVarLinker:
-    steady_scalar_vars, steady_dae_vars = flatten_dae_components(
-        m_steady, m_steady.fs.time, pyo.Var
-    )
-    steady_dae_vars_in_plant = [
-        m_plant.find_component(var.referent) for var in steady_dae_vars
-    ]
-    plant_steady_linker = DynamicVarLinker(
-        steady_dae_vars,
-        steady_dae_vars_in_plant,
-        m_steady.fs.time,
-        m_plant.fs.time,
-    )
-    #for name, val in scalar_data.items():
-    #    m_plant.find_component(name).set_value(val)
-    #for name, val in initial_data.items():
-    #    var = m_plant.find_component(name)
-    #    for t in time:
-    #        var[t].set_value(val)
-    plant_steady_linker.transfer()
+    use_linker = False
+    if use_linker:
+        # If I want to use DynamicVarLinker:
+        steady_scalar_vars, steady_dae_vars = flatten_dae_components(
+            m_steady, m_steady.fs.time, pyo.Var
+        )
+        steady_dae_vars_in_plant = [
+            m_plant.find_component(var.referent) for var in steady_dae_vars
+        ]
+        plant_steady_linker = DynamicVarLinker(
+            steady_dae_vars,
+            steady_dae_vars_in_plant,
+            m_steady.fs.time,
+            m_plant.fs.time,
+        )
+        plant_steady_linker.transfer()
 
-    # If I want to use DynamicModelHelper:
-    m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
-    m_plant_helper.load_scalar_data(scalar_data)
+    else:
+        # If I want to use DynamicModelHelper:
+        m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
+        m_plant_helper.load_scalar_data(scalar_data)
+        m_plant_helper.load_data_at_time(initial_data)
 
     # Solve as a sanity check -- should be square with zero infeasibility
     ipopt.solve(m_plant, tee=True)
@@ -150,13 +130,7 @@ def run_nmpc(
     # Initialize data structure for simulation data
     #
     scalar_vars, dae_vars = flatten_dae_components(m_plant, time, pyo.Var)
-    simulation_data = (
-        [t0],
-        {
-            str(pyo.ComponentUID(var.referent)): [var[t0].value]
-            for var in dae_vars
-        },
-    )
+    simulation_data = ([t0], m_plant_helper.get_data_at_time([t0]))
 
     #
     # Construct dynamic model for controller
@@ -171,6 +145,8 @@ def run_nmpc(
     # Fix inputs at initial condition
     m_controller.fs.pipeline.control_volume.pressure[t0, x0].fix()
     m_controller.fs.pipeline.control_volume.flow_mass[t0, xf].fix()
+
+    m_controller_helper = DynamicModelHelper(m_controller, m_controller.fs.time)
 
     #
     # Construct tracking objective
@@ -188,10 +164,10 @@ def run_nmpc(
         "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
         "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
     }
-    #weight_data = {
-    #    # Process keys with CUID for consistency of string representation
-    #    str(pyo.ComponentUID(name)): val for name, val in weight_data.items()
-    #}
+    weight_data = {
+        # get_tracking_cost_expression expects CUIDs as keys now
+        pyo.ComponentUID(name): val for name, val in weight_data.items()
+    }
     m_controller.tracking_cost = get_tracking_cost_from_constant_setpoint(
         tracking_variables,
         m_controller.fs.time,
@@ -232,27 +208,19 @@ def run_nmpc(
     #
     # Initialize dynamic model to initial steady state
     #
-    for name, val in scalar_data.items():
-        m_controller.find_component(name).set_value(val)
-    for name, val in initial_data.items():
-        var = m_controller.find_component(name)
-        for t in time:
-            var[t].set_value(val)
+    m_controller_helper.load_scalar_data(scalar_data)
+    m_controller_helper.load_data_at_time(initial_data, time)
 
     #
     # Initialize data structure for controller inputs
     #
     input_names = [
-        "fs.pipeline.control_volume.flow_mass[*,%s]" % xf,
-        "fs.pipeline.control_volume.pressure[*,%s]" % x0,
+        pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,%s]" % xf),
+        pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,%s]" % x0),
     ]
-    applied_inputs = (
-        [t0],
-        {
-            name: [m_controller.find_component(name)[t0].value]
-            for name in input_names
-        },
-    )
+    input_data = m_controller_helper.get_data_at_time([t0])
+    input_data = {cuid: input_data[cuid] for cuid in input_names}
+    applied_inputs = ([t0], input_data)
 
     controller_input_vars = [
         m_controller.find_component(name) for name in input_names
@@ -265,6 +233,9 @@ def run_nmpc(
         plant_input_vars,
     )
 
+    # We will send values of all variables from plant to controller,
+    # even though we only need to send those that are fixed as initial
+    # conditions.
     plant_vars_in_controller = [
         m_controller.find_component(var.referent) for var in dae_vars
     ]
@@ -273,16 +244,11 @@ def run_nmpc(
         plant_vars_in_controller,
     )
 
-    # This will be necessary for controller initialization
-    _, controller_dae_vars = flatten_dae_components(
-        m_controller, m_controller.fs.time, pyo.Var
-    )
-
     for i in range(n_cycles):
         # time.first() in the model corresponds to sim_t0 in "simulation time"
         # time.last() in the model corresponds to sim_tf in "simulation time"
         sim_t0 = i*sample_period
-        sim_tf = (i+1)*sample_period
+        sim_tf = (i + 1)*sample_period
 
         #
         # Solve dynamic optimization problem to get inputs
@@ -294,10 +260,8 @@ def run_nmpc(
         # Extract first inputs from controller
         #
         sample_interval = [t0, ts]
-        input_data = {}
-        for name in input_names:
-            var = m_controller.find_component(name)
-            input_data[name] = [var[t0].value, var[ts].value]
+        input_data = m_controller_helper.get_data_at_time([t0, ts])
+        input_data = {cuid: input_data[cuid] for cuid in input_names}
         extracted_inputs = (sample_interval, input_data)
 
         #
@@ -310,8 +274,6 @@ def run_nmpc(
         #
         # Load inputs from controller into plant
         #
-        #inputs_for_model = interval_data_from_time_series(extracted_inputs)
-        #load_inputs_into_model(m_plant, m_plant.fs.time, inputs_for_model)
         non_initial_plant_time = list(m_plant.fs.time)[1:]
         input_linker.transfer(ts, non_initial_plant_time)
 
@@ -326,17 +288,13 @@ def run_nmpc(
         non_initial_time = list(time)[1:]
         model_data = (
             non_initial_time,
-            {
-                str(pyo.ComponentUID(var.referent)): [
-                    var[t].value for t in non_initial_time
-                ] for var in dae_vars
-            },
+            m_plant_helper.get_data_at_time(non_initial_time),
         )
 
         #
         # Apply offset to data from model
         #
-        new_time_points = [t+sim_t0 for t in non_initial_time]
+        new_time_points = [t + sim_t0 for t in non_initial_time]
         new_sim_data = (new_time_points, dict(model_data[1]))
 
         #
@@ -349,34 +307,20 @@ def run_nmpc(
         #
         # Re-initialize controller model
         #
-        seen = set()
-        tf = m_controller.fs.time.last()
-        for var in controller_dae_vars:
-            if id(var[t0]) in seen:
-                continue
-            else:
-                seen.add(id(var[t0]))
-            for t in m_controller.fs.time:
-                ts = t + sample_period
-                idx = m_controller.fs.time.find_nearest_index(ts)
-                if idx is None:
-                    # ts is outside the controller's horizon
-                    var[t].set_value(var[tf].value)
-                else:
-                    ts = m_controller.fs.time.at(idx)
-                    var[t].set_value(var[ts].value)
+        m_controller_helper.shift_values(sample_period)
 
         #
         # Re-initialize model to final values.
         # This includes setting new initial conditions.
         #
         tf = m_plant.fs.time.last()
-        for var in dae_vars:
-            final_value = var[tf].value
-            for t in m_plant.fs.time:
-                var[t].set_value(final_value)
-            #controller_var = m_controller.find_component(var.referent)
-            #controller_var[t0].set_value(final_value)
+        # This is a hacky way to do this. We construct a dict,
+        # then call find component at every key:
+        #tf_data = m_plant_helper.get_data_at_time(tf)
+        #m_plant_helper.load_data_at_time(tf_data, m_plant.fs.time)
+        #
+        # This way seems cleaner for now:
+        m_plant_helper.propagate_values_at_time(tf)
 
         init_cond_linker.transfer(tf, t0)
 
@@ -422,14 +366,14 @@ if __name__ == "__main__":
     plot_states_from_data(
         simulation_data,
         [
-            "fs.pipeline.control_volume.flow_mass[*,0.0]",
-            "fs.pipeline.control_volume.pressure[*,1.0]",
+            pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,0.0]"),
+            pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,1.0]"),
         ],
     )
     plot_inputs_from_data(
         applied_inputs,
         [
-            "fs.pipeline.control_volume.flow_mass[*,1.0]",
-            "fs.pipeline.control_volume.pressure[*,0.0]",
+            pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,1.0]"),
+            pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,0.0]"),
         ],
     )

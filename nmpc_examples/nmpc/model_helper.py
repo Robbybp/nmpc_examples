@@ -2,6 +2,19 @@ from pyomo.dae.flatten import flatten_dae_components
 from pyomo.core.base.var import Var
 from pyomo.core.base.componentuid import ComponentUID
 
+iterable_scalars = (str, bytes)
+
+
+def _to_iterable(item):
+    if hasattr(item, "__iter__"):
+        if isinstance(item, iterable_scalars):
+            yield item
+        else:
+            for obj in item:
+                yield obj
+    else:
+        yield item
+
 
 class DynamicModelHelper(object):
     """
@@ -45,13 +58,14 @@ class DynamicModelHelper(object):
         }
 
     def load_scalar_data(self, data):
-        # Unclear whether methods or loading data into a model should
-        # go on this class.
-        #
-        # Also unclear whether mapping names to variables is actually
-        # a good idea. If keys in data are just CUIDs, then computing
-        # the hash (to look up a variable) is about the same amount
-        # of work as calling find_component.
         for cuid, val in data.items():
             var = self.model.find_component(cuid)
             var.set_value(val)
+
+    def load_data_at_time(self, data, time_points=None):
+        if time_points is None:
+            time_points = self.time
+        for cuid, val in data.items():
+            var = self.model.find_component(cuid)
+            for t in time_points:
+                var[t].set_value(val)

@@ -27,6 +27,46 @@ sending to the tracking cost expression function.
 Now I can copy the \texttt{dynamic\_data} code out of IDAES and update my imports.
 This has been done.
 
+\medskip
+
+Is my goal to fix the tracking cost expression function or to remove code using
+a model serializer class?
+My motivation for switching to CUIDs as keys is so that inconsistencies in
+string representations, even within strings from CUIDs, don't cause errors.
+This will necessitate a class for the data object, but now I'm getting ahead
+of myself.
+I should focus on the tracking cost expression function.
+Changes to the function itself are minor. Just don't call \texttt{str} on CUIDs.
+Should this function process keys in case the user provides strings?
+I don't like this, because then we're doing an operation on every key, when
+we may only be using a small subset.
+Setpoint and weight data structures could be their own objects, however. Then
+I extract vectors for user-provided variables. Where user-provided variables
+are processed to get the representation used as a key in these data structures.
+This seems not bad. There are some tradeoffs here. This is a design question to
+pose to John and Bethany.
+Note that when a user supplies a list of variables, this induces some sort of
+order. It would be nice if the returned object preserves this order (e.g. list
+of values).
+The ``extract subset'' functionality seems like it should belong to the data
+object\ldots
+
+\medskip
+
+Okay, I can use CUIDs as keys in the tracking cost function, and return
+data structures using CUIDs as keys from the model helper.
+
+Now:
+\begin{enumerate}
+  \item Remove all dictionaries using names as keys from the model helper,
+    and remove the name generation from \texttt{\_\_init\_\_}.
+  \item Go back to the simulation and NMPC scripts, using the model wrapper
+    to remove code.
+  \item \textbf{Aside:} Should loading values into a model be a function of the
+    model wrapper or the serializable data structure. The ambitious answer is
+    both. I'm not sure what the \emph{right} answer is.
+\end{enumerate}
+
 \section{Jan 24, 2022}
 
 \RP

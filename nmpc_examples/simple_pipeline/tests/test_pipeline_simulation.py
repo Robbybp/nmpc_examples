@@ -1,4 +1,5 @@
 import pyomo.common.unittest as unittest
+import pyomo.environ as pyo
 
 from nmpc_examples.simple_pipeline.run_pipeline_simulation import (
     run_simulation,
@@ -23,11 +24,13 @@ class TestPipelineSimulation(unittest.TestCase):
             49.68, 49.40, 49.18, 49.00, 48.86, 48.74,
         ]
 
-        actual_inlet_flow = simulation_data[1][
-            "fs.pipeline.control_volume.flow_mass[*,0.0]"
+        #actual_inlet_flow = simulation_data[1][
+        actual_inlet_flow = simulation_data.get_data()[
+            pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,0.0]")
         ]
-        actual_outlet_pressure = simulation_data[1][
-            "fs.pipeline.control_volume.pressure[*,1.0]"
+        #actual_outlet_pressure = simulation_data[1][
+        actual_outlet_pressure = simulation_data.get_data()[
+            pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,1.0]")
         ]
 
         self.assertStructuredAlmostEqual(

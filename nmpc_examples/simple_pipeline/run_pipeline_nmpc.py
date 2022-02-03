@@ -130,7 +130,10 @@ def run_nmpc(
     # Initialize data structure for simulation data
     #
     scalar_vars, dae_vars = flatten_dae_components(m_plant, time, pyo.Var)
-    simulation_data = ([t0], m_plant_helper.get_data_at_time([t0]))
+    #simulation_data = ([t0], m_plant_helper.get_data_at_time([t0]))
+    from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
+    _sim_data = m_plant_helper.get_data_at_time([t0])
+    #_sim_data = TimeSeriesData(m_plant_helper.get_data_at_time([t0]), [t0])
 
     #
     # Construct dynamic model for controller
@@ -218,9 +221,17 @@ def run_nmpc(
         pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,%s]" % xf),
         pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,%s]" % x0),
     ]
-    input_data = m_controller_helper.get_data_at_time([t0])
-    input_data = {cuid: input_data[cuid] for cuid in input_names}
-    applied_inputs = ([t0], input_data)
+    #input_data = m_controller_helper.get_data_at_time([t0])
+    #input_data = {cuid: input_data[cuid] for cuid in input_names}
+    #applied_inputs = ([t0], input_data)
+
+    # If I want to use TimerSeriesData:
+    #_applied_inputs = TimeSeriesData(
+    #    m_controller_helper.get_data_at_time([t0]), [t0]
+    #)
+    _applied_inputs = m_controller_helper.get_data_at_time([t0])
+    # How do I extract a subset of variables from the series data?
+    _applied_inputs.project_onto_variables(input_names)
 
     controller_input_vars = [
         m_controller.find_component(name) for name in input_names
@@ -260,16 +271,32 @@ def run_nmpc(
         # Extract first inputs from controller
         #
         sample_interval = [t0, ts]
-        input_data = m_controller_helper.get_data_at_time([t0, ts])
-        input_data = {cuid: input_data[cuid] for cuid in input_names}
-        extracted_inputs = (sample_interval, input_data)
+        #input_data = m_controller_helper.get_data_at_time([t0, ts])
+        #input_data = {cuid: input_data[cuid] for cuid in input_names}
+        #extracted_inputs = (sample_interval, input_data)
+
+        # If I'm using TimeSeriesData:
+        # Now I have to explicitly extract data only at ts...
+        #_extracted_inputs = TimeSeriesData(
+        #    m_controller_helper.get_data_at_time([ts]),
+        #    [ts],
+        #)
+        _extracted_inputs = m_controller_helper.get_data_at_time([ts])
+        # And I have to explicitly project onto input names...
+        # presumably this could be handled by a variable_subset argument
+        # in get_data_at_time
+        _extracted_inputs.project_onto_variables(input_names)
+        # And I haveto shift time points
+        _extracted_inputs.shift_time_points(sim_t0)
 
         #
         # Extend data structure of applied inputs
         #
-        applied_inputs[0].append(sim_t0 + ts)
-        for name, values in applied_inputs[1].items():
-            values.append(extracted_inputs[1][name][1])
+        #applied_inputs[0].append(sim_t0 + ts)
+        #for name, values in applied_inputs[1].items():
+        #    values.append(extracted_inputs[1][name][1])
+        # With TimeSeriesData:
+        _applied_inputs.concatenate(_extracted_inputs)
 
         #
         # Load inputs from controller into plant
@@ -286,23 +313,38 @@ def run_nmpc(
         # Note that this is only correct because we're using an implicit
         # time discretization.
         non_initial_time = list(time)[1:]
-        model_data = (
-            non_initial_time,
-            m_plant_helper.get_data_at_time(non_initial_time),
-        )
+        #model_data = (
+        #    non_initial_time,
+        #    m_plant_helper.get_data_at_time(non_initial_time),
+        #)
+        #_model_data = TimeSeriesData(
+        #    # Should m_plant_helper just return a TimeSeriesData object?
+        #    # I lean towards yes.
+        #    m_plant_helper.get_data_at_time(non_initial_time),
+        #    non_initial_time,
+        #)
+        _model_data = m_plant_helper.get_data_at_time(non_initial_time)
 
         #
         # Apply offset to data from model
         #
         new_time_points = [t + sim_t0 for t in non_initial_time]
-        new_sim_data = (new_time_points, dict(model_data[1]))
+        #new_sim_data = (new_time_points, dict(model_data[1]))
+
+        # Should this be a method? offset_time_points?
+        #_new_sim_data = TimeSeriesData(
+        #    _model_data.get_data(),
+        #    new_time_points,
+        #)
+        _model_data.shift_time_points(sim_t0)
 
         #
         # Extend simulation data with result of new simulation
         #
-        simulation_data[0].extend(new_time_points)
-        for name, values in simulation_data[1].items():
-            values.extend(new_sim_data[1][name])
+        #simulation_data[0].extend(new_time_points)
+        #for name, values in simulation_data[1].items():
+        #    values.extend(new_sim_data[1][name])
+        _sim_data.concatenate(_model_data)
 
         #
         # Re-initialize controller model
@@ -324,11 +366,14 @@ def run_nmpc(
 
         init_cond_linker.transfer(tf, t0)
 
-    return simulation_data, applied_inputs
+    return _sim_data, _applied_inputs
+    #return simulation_data, applied_inputs
 
 
 def plot_states_from_data(data, names, show=False):
-    time, state_data = data
+    time = data.get_time_points()
+    state_data = data.get_data()
+    #time, state_data = data
     for i, name in enumerate(names):
         values = state_data[name]
         fig, ax = plt.subplots()
@@ -344,7 +389,9 @@ def plot_states_from_data(data, names, show=False):
 
 
 def plot_inputs_from_data(data, names, show=False):
-    time, input_data = data
+    time = data.get_time_points()
+    input_data = data.get_data()
+    #time, input_data = data
     for i, name in enumerate(names):
         values = input_data[name]
         fig, ax = plt.subplots()

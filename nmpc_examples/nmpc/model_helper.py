@@ -2,6 +2,8 @@ from pyomo.dae.flatten import flatten_dae_components
 from pyomo.core.base.var import Var
 from pyomo.core.base.componentuid import ComponentUID
 
+from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
+
 iterable_scalars = (str, bytes)
 
 
@@ -53,14 +55,25 @@ class DynamicModelHelper(object):
         if time is None:
             time = self.time.first()
         try:
-            time = list(time)
-            return {
+            time_list = list(time)
+            data = {
                 cuid: [var[t].value for t in time]
                 for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
             }
+            # Here we're returning a data series object.
+            # This makes the calling code simpler. Does it make sense for
+            # this class? I.e. should we have some special class for
+            # scalar data? Just the ability to process variable-like
+            # keys makes this probably worthwhile.
+            return TimeSeriesData(data, time_list, time_set=time)
+            #return {
+            #    cuid: [var[t].value for t in time]
+            #    for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
+            #}
         except TypeError:
             # time is a scalar
-            # Maybe checking if time is in numeric_types would be better.
+            # Maybe checking if time is an instance of numeric_types would
+            # be better.
             return {
                 cuid: var[time].value
                 for cuid, var in zip(self.dae_var_cuids, self.dae_vars)

@@ -10,6 +10,90 @@
 \begin{document}
 \maketitle
 
+\section{Feb 2, 2022}
+
+\RP
+I'm using the model serializer class every time I need to save/load scalar data,
+and to facilitate ``cycling'' of the plant and controller models.
+I'm also using it to generate time series data for data from the plant.
+I'm also using it to generate time series data at sample points from the
+controller, then manually extracting the input CUIDs.
+Inconveniences I would like to ``abstract away'':
+\begin{itemize}
+  \item Need to manually ``extend'' time series data.
+  \item Need to manually extract subsets of variables.
+\end{itemize}
+The first is probably the more inconvenient thing, and should be handled by
+a class for my dynamic data.
+
+\subsection{Class for dynamic data}
+\begin{itemize}
+  \item The first thing we need to do is initialize the data structure, which
+    right now is just a tuple.
+  \item What is the purpose of having a class rather than just a tuple
+    (or named tuple)?
+    \begin{itemize}
+      \item Instantiation (Putting things in the wrong locations of a tuple
+	gives no error.)
+      \item Convert to json-serializable. I think I have settled on using CUIDs
+	as keys. This means my structures are not directly json-serializable.
+	I should have a method to convert to json-serializable format.
+	And should be able to instantiate from json-serializable format.
+      \item Process variables/names to extract a subset of keys.
+	Calling ComponentUID repeatedly to construct keys is inconvenient.
+	In addition, a user may want to specify keys with a wide variety
+	of variable-like objects.
+      \item Method for extending. Right now you need to know about the data
+	structure to do this. There is also some error-checking we might
+	want to do.
+    \end{itemize}
+  \item An immediate question is whether I should have two different classes
+    for scalar and time series data. For now, since my main use case is
+    instantiating and extending time series data, I'll just focus on the latter
+    functionality. If what I come up with ends up being compatible with
+    scalar data, great.
+\end{itemize}
+Concatenation seems to work. Is the next thing to do manually extract subsets
+of variables?
+First, how do I like the data class so far?
+\begin{itemize}
+  \item Instantiation seems fine, but I should really return this object
+    from the helper class. If I do this, I should probably have some data
+    class for scalar data.
+  \item Two potential functionalities are shifting the time list in-place
+    and copying the entire object.
+    I'll go with the former for now. It is more directly what I want.
+  \item I need to be careful when constructing a data series using the time
+    points or data from another. I could end up extending data in one series
+    while inadvertantly extending it in another.
+    I think this is good enough motivation to add a copy method.
+\end{itemize}
+
+Extract subsets of variables:
+\begin{itemize}
+  \item What object to I want to return?
+  \item I could just alter the data series in place.
+  \item I could return a copy that only has the desired variables.
+  \item I could return a list of lists corresponding to the variables
+    provided.
+  \item All I need to do for now is alter the data series in place, which
+    is also the most convenient thing to do.
+\end{itemize}
+
+Extracting a subset via \texttt{project\_onto\_variables} seems to work.
+How do I feel about the data class?
+\begin{itemize}
+  \item I should return the data series object directly from
+    \texttt{get\_data\_at\_time}
+  \item User will have to call \texttt{project\_onto\_variables}
+    and \texttt{shift\_time\_points}. I think this is easy enough.
+\end{itemize}
+
+This has been successful so far. Next I need to go through the simulation
+script and make sure these data structures still work.
+Then I need to pull out old code, then I need to update the model helper
+to return data series objects directly.
+
 \section{Feb 1, 2022}
 
 \RP

@@ -25,17 +25,21 @@ class TestPipelineNMPC(unittest.TestCase):
         pred_outlet_flow = [3.00000e5, 5.53003e5, 5.35472e5]
         pred_inlet_pressure = [57.000, 58.905, 58.920]
 
-        actual_inlet_flow = simulation_data[1][
+        actual_inlet_flow = simulation_data.get_data()[
+        #actual_inlet_flow = simulation_data[1][
             pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,0.0]")
         ]
-        actual_outlet_pressure = simulation_data[1][
+        actual_outlet_pressure = simulation_data.get_data()[
+        #actual_outlet_pressure = simulation_data[1][
             pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,1.0]")
         ]
 
-        actual_outlet_flow = applied_inputs[1][
+        actual_outlet_flow = applied_inputs.get_data()[
+        #actual_outlet_flow = applied_inputs[1][
             pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,1.0]")
         ]
-        actual_inlet_pressure = applied_inputs[1][
+        actual_inlet_pressure = applied_inputs.get_data()[
+        #actual_inlet_pressure = applied_inputs[1][
             pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,0.0]")
         ]
 

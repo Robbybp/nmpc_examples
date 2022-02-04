@@ -11,6 +11,9 @@ from nmpc_examples.nmpc.dynamic_data import (
 from nmpc_examples.nmpc import (
     get_tracking_cost_from_constant_setpoint,
 )
+from nmpc_examples.nmpc.input_constraints import (
+    get_piecewise_constant_constraint,
+)
 
 from nmpc_examples.nmpc.model_linker import DynamicVarLinker
 from nmpc_examples.nmpc.model_helper import DynamicModelHelper
@@ -100,6 +103,8 @@ def run_nmpc(
     use_linker = False
     if use_linker:
         # If I want to use DynamicVarLinker:
+        # (E.g. if we didn't know that names in the steady model would
+        # be valid for the dynamic model.)
         steady_scalar_vars, steady_dae_vars = flatten_dae_components(
             m_steady, m_steady.fs.time, pyo.Var
         )
@@ -179,30 +184,20 @@ def run_nmpc(
     #
     # Constrain inputs piecewise constant
     #
-    # TODO: This should be handled by a function in another module.
     piecewise_constant_vars = [
         pyo.Reference(cv.pressure[:, x0]),
         pyo.Reference(cv.flow_mass[:, xf]),
     ]
-    m_controller.piecewise_constant_vars_set = pyo.Set(
-        initialize=list(range(len(piecewise_constant_vars)))
-    )
     sample_points = [
         t0 + sample_period*i for i in range(samples_per_controller+1)
     ]
-    sample_point_set = set(sample_points)
-    def piecewise_constant_rule(m, i, t):
-        var = piecewise_constant_vars[i]
-        if t in sample_point_set:
-            return pyo.Constraint.Skip
-        else:
-            t_next = m_controller.fs.time.next(t)
-            return var[t] == var[t_next]
-    m_controller.piecewise_constant_constraint = pyo.Constraint(
-        m_controller.piecewise_constant_vars_set,
+    input_set, pwc_con = get_piecewise_constant_constraint(
+        piecewise_constant_vars,
         m_controller.fs.time,
-        rule=piecewise_constant_rule,
+        sample_points,
     )
+    m_controller.input_set = input_set
+    m_controller.piecewise_constant = pwc_con
 
     #
     # Initialize dynamic model to initial steady state

@@ -28,6 +28,10 @@ class DynamicModelHelper(object):
     """
 
     def __init__(self, model, time):
+        """
+        Construct with a model and a set. We will flatten the model
+        with respect to this set and generate CUIDs with wildcards.
+        """
         scalar_vars, dae_vars = flatten_dae_components(model, time, Var)
         self.model = model
         self.time = time
@@ -46,45 +50,60 @@ class DynamicModelHelper(object):
         ]
 
     def get_scalar_data(self):
+        """
+        Get data corresponding to scalar data. This is just a dict
+        mapping CUIDs to values.
+        """
+        # TODO: Clarify that "scalar" refers to non-time-indexed variables
         return {
             cuid: var.value
             for cuid, var in zip(self.scalar_var_cuids, self.scalar_vars)
         }
 
     def get_data_at_time(self, time=None):
+        """
+        Gets data at a single time point or set of time point. Note that
+        the returned type changes depending on whether a scalar or iterable
+        is supplied.
+        """
         if time is None:
             time = self.time.first()
         try:
+            # Assume time is iterable
             time_list = list(time)
             data = {
                 cuid: [var[t].value for t in time]
                 for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
             }
-            # Here we're returning a data series object.
-            # This makes the calling code simpler. Does it make sense for
-            # this class? I.e. should we have some special class for
-            # scalar data? Just the ability to process variable-like
-            # keys makes this probably worthwhile.
+            # Return a TimeSeriesData object, as this is more convenient
+            # for the calling code.
             return TimeSeriesData(data, time_list, time_set=time)
-            #return {
-            #    cuid: [var[t].value for t in time]
-            #    for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
-            #}
         except TypeError:
             # time is a scalar
             # Maybe checking if time is an instance of numeric_types would
             # be better.
+            # Return a dict mapping CUIDs to values. Should I have a similar
+            # class for "scalar data"?
             return {
                 cuid: var[time].value
                 for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
             }
 
     def load_scalar_data(self, data):
+        """
+        Expects a dict mapping CUIDs (or strings) to values.
+        """
         for cuid, val in data.items():
             var = self.model.find_component(cuid)
             var.set_value(val)
 
     def load_data_at_time(self, data, time_points=None):
+        """
+        Expects a dict mapping CUIDs to values, except this time
+        we assume that the variables are indexed. Should this be
+        combined with the above method (which could then check
+        if the variable is indexed).
+        """
         if time_points is None:
             time_points = self.time
         else:
@@ -95,11 +114,9 @@ class DynamicModelHelper(object):
                 var[t].set_value(val)
 
     def propagate_values_at_time(self, t, target_time=None):
-        # TODO: name of this method?
-        # Here I only implement a transfer from a single time point.
-        # We could transfer to and from multiple time points, but
-        # we could potentially override our desired values if a vardata
-        # appears twice (e.g. because it is part of a reference)
+        """
+        Copy values from a particular time point to a set of time points.
+        """
         if target_time is None:
             target_time = self.time
         else:
@@ -109,9 +126,13 @@ class DynamicModelHelper(object):
                 var[t_targ].set_value(var[t].value)
 
     def shift_values(self, dt):
+        """
+        Shift values in time indexed variables by a specified time offset.
+        """
         seen = set()
         t0 = self.time.first()
         tf = self.time.last()
+        time_map = {}
         for var in self.dae_vars:
             if id(var[tf]) in seen:
                 # Assume that if var[tf] has been encountered, this is a
@@ -121,13 +142,20 @@ class DynamicModelHelper(object):
                 seen.add(id(var[tf]))
             new_values = []
             for t in self.time:
-                t_new = t + dt
-                # TODO: What if t_shift is not a valid time point?
-                # Right now we just proceed with the closest valid time point.
-                # We're relying on the fact that indices of t0 or tf are
-                # returned if t_new is outside the bounds of the time set.
-                idx = self.time.find_nearest_index(t_new, tolerance=None)
-                t_new = self.time.at(idx)
+                if t not in time_map:
+                    # Build up a map from target to source time points,
+                    # as I don't want to call find_nearest_index
+                    # more frequently than I have to.
+                    t_new = t + dt
+                    idx = self.time.find_nearest_index(t_new, tolerance=None)
+                    # TODO: What if t_new is not a valid time point?
+                    # Right now we just proceed with the closest valid time
+                    # point. We're relying on the fact that indices of t0 or
+                    # tf are returned if t_new is outside the bounds of the
+                    # time set.
+                    t_new = self.time.at(idx)
+                    time_map[t] = t_new
+                t_new = time_map[t]
                 new_values.append(var[t_new].value)
             for i, t in enumerate(self.time):
                 var[t].set_value(new_values[i])

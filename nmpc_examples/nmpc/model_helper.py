@@ -55,6 +55,7 @@ class DynamicModelHelper(object):
         mapping CUIDs to values.
         """
         # TODO: Clarify that "scalar" refers to non-time-indexed variables
+        # get_time_invariant_data, maybe
         return {
             cuid: var.value
             for cuid, var in zip(self.scalar_var_cuids, self.scalar_vars)
@@ -117,6 +118,7 @@ class DynamicModelHelper(object):
         """
         Copy values from a particular time point to a set of time points.
         """
+        # TODO: Name. copy_values_at/from_time
         if target_time is None:
             target_time = self.time
         else:
@@ -129,6 +131,7 @@ class DynamicModelHelper(object):
         """
         Shift values in time indexed variables by a specified time offset.
         """
+        # TODO: Name. shift_values_by_time, shift_time_values
         seen = set()
         t0 = self.time.first()
         tf = self.time.last()

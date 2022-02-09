@@ -285,7 +285,7 @@ def run_nmpc(
         # Initial conditions have already been accounted for.
         # Note that this is only correct because we're using an implicit
         # time discretization.
-        non_initial_time = list(time)[1:]
+        non_initial_time = list(m_plant.fs.time)[1:]
         model_data = m_plant_helper.get_data_at_time(non_initial_time)
 
         #

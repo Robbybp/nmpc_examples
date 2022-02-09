@@ -10,6 +10,26 @@
 \begin{document}
 \maketitle
 
+\section{Feb 9, 2022}
+
+More problems with names:
+\begin{itemize}
+  \item \texttt{load\_data\_at\_time} should specify that we are only
+    loading scalar data (but it should be made clear that we can load
+    this data into multiple points in time)
+  \item Method for shifting time points should probably have the same
+    name between time series data object and dynamic model helper.
+\end{itemize}
+
+Other areas for improvement/discussion with these data structures:
+\begin{itemize}
+  \item Is a ``propagate values'' function really necessary when we
+    have ``shift values by time''?
+  \item A class for scalar data seems like it would be useful, if only to
+    process user-provided keys, e.g. when we send weight data to
+    the tracking cost expression function.
+\end{itemize}
+
 \section{Feb 8, 2022}
 
 My immediate priority is to rename some methods.

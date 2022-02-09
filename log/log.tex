@@ -10,6 +10,27 @@
 \begin{document}
 \maketitle
 
+\section{Feb 8, 2022}
+
+My immediate priority is to rename some methods.
+Another question is whether a pure dictionary is an acceptable
+data type for ``scalar\_data''
+
+What problems would I like to resolve:
+\begin{itemize}
+  \item DynamicModelHelper is somewhat vague.
+  \item ``scalar data'' is ambiguous -- scalar variables or
+    scalar data (potentially from time-indexed variables)
+  \item \texttt{get\_data\_at\_time} should be consistent
+    between data class and helper class. What if an iterable is
+    passed to the helper class method.
+  \item ``propagate values'' is vague. This is hard to name
+  \item ``shift values'' is vague. ``shift values by time''
+    might be better. Needs to imply that time points are changing,
+    not data values
+  \item Is \texttt{project\_onto\_variables} clear?
+\end{itemize}
+
 \section{Feb 3, 2022}
 
 \RP

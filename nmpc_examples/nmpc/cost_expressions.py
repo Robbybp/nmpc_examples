@@ -13,6 +13,8 @@
 from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
+from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
+
 def get_tracking_cost_from_constant_setpoint(
         variables,
         time,
@@ -42,15 +44,19 @@ def get_tracking_cost_from_constant_setpoint(
     squared difference between variables and setpoint values.
 
     """
-    variable_names = [
-        str(ComponentUID(var))
-        if not var.is_reference()
-        else str(ComponentUID(var.referent))
-        for var in variables
-    ]
+    #variable_names = [
+    #    str(ComponentUID(var))
+    #    if not var.is_reference()
+    #    else str(ComponentUID(var.referent))
+    #    for var in variables
+    #]
+    #cuids = [
+    #    ComponentUID(var) if not var.is_reference()
+    #    else ComponentUID(var.referent)
+    #    for var in variables
+    #]
     cuids = [
-        ComponentUID(var) if not var.is_reference()
-        else ComponentUID(var.referent)
+        get_time_indexed_cuid(var, sets=(time,))
         for var in variables
     ]
     if weight_data is None:

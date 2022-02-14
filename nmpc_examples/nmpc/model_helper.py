@@ -97,9 +97,13 @@ class DynamicModelHelper(object):
         """
         Expects a dict mapping CUIDs (or strings) to values.
         """
+        # Is this name okay? the keys can correspond to scalar or
+        # time-indexed variables.
         for cuid, val in data.items():
             var = self.model.find_component(cuid)
-            var.set_value(val)
+            var_iter = (var,) if not var.is_indexed() else var.values()
+            for var in var_iter:
+                var.set_value(val)
 
     def load_data_at_time(self, data, time_points=None):
         """

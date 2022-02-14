@@ -49,13 +49,16 @@ class DynamicModelHelper(object):
             for var in self.dae_vars
         ]
 
-    def get_scalar_data(self):
+    def get_scalar_variable_data(self):
         """
-        Get data corresponding to scalar data. This is just a dict
-        mapping CUIDs to values.
+        Get data corresponding to non-time-indexed variables.
+
+        Returns
+        -------
+        dict
+            Maps CUIDs of non-time-indexed variables to the value of these
+            variables.
         """
-        # TODO: Clarify that "scalar" refers to non-time-indexed variables
-        # get_time_invariant_data, maybe
         return {
             cuid: var.value
             for cuid, var in zip(self.scalar_var_cuids, self.scalar_vars)

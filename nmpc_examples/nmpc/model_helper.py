@@ -95,10 +95,9 @@ class DynamicModelHelper(object):
 
     def load_scalar_data(self, data):
         """
-        Expects a dict mapping CUIDs (or strings) to values.
+        Expects a dict mapping CUIDs (or strings) to values. Keys can
+        correspond to time-indexed or non-time-indexed variables.
         """
-        # Is this name okay? the keys can correspond to scalar or
-        # time-indexed variables.
         for cuid, val in data.items():
             var = self.model.find_component(cuid)
             var_iter = (var,) if not var.is_indexed() else var.values()

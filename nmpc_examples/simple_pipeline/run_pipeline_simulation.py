@@ -78,7 +78,7 @@ def run_simulation(
     #
     # Extract data from steady state model
     #
-    scalar_data = m_steady_helper.get_scalar_data()
+    scalar_data = m_steady_helper.get_scalar_variable_data()
     initial_data = m_steady_helper.get_data_at_time(time=t0_steady)
 
     #

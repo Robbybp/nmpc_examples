@@ -95,7 +95,7 @@ def run_nmpc(
     #
     m_steady_helper = DynamicModelHelper(m_steady, m_steady.fs.time)
     initial_data = m_steady_helper.get_data_at_time(t0)
-    scalar_data = m_steady_helper.get_scalar_data()
+    scalar_data = m_steady_helper.get_scalar_variable_data()
 
     #
     # Load data into dynamic model

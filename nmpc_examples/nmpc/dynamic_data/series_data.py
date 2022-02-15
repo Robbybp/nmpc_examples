@@ -158,7 +158,6 @@ class TimeSeriesData(object):
 
     def get_data_at_time(self, time=None, tolerance=None):
         """
-        Returns "scalar data" at the specified time point.
         """
         if time is None:
             return self
@@ -213,7 +212,7 @@ class TimeSeriesData(object):
     #    new.project_onto_variables(variables)
     #    return new
 
-    def project_onto_variables(self, variables):
+    def extract_variables(self, variables):
         """
         Only keep variables specified by the user.
         """
@@ -221,7 +220,11 @@ class TimeSeriesData(object):
         for var in variables:        
             cuid = get_time_indexed_cuid(var, (self._orig_time_set,))
             data[cuid] = self._data[cuid]
-        self._data = data
+        return TimeSeriesData(
+            data,
+            self._time,
+            time_set=self._orig_time_set,
+        )
 
     #
     # Unused

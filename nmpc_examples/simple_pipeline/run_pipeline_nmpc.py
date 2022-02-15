@@ -301,7 +301,7 @@ def run_nmpc(
         #
         # Re-initialize controller model
         #
-        m_controller_helper.shift_values(sample_period)
+        m_controller_helper.shift_values_by_time(sample_period)
 
         #
         # Re-initialize model to final values.

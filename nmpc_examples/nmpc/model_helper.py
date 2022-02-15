@@ -124,7 +124,6 @@ class DynamicModelHelper(object):
 
     def copy_values_at_time(self, source_time=None, target_time=None):
         """
-        Copy values from a particular time point to a set of time points.
         """
         if source_time is None:
             source_time = self.time.first()

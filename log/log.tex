@@ -27,6 +27,18 @@ More problems with names:
     this data into multiple points in time)
   \item Method for shifting time points should probably have the same
     name between time series data object and dynamic model helper.
+    \begin{itemize}
+      \item Now (2/14) I disagree.
+      \item We are doing different things in these two functions, so they
+	should have different names
+      \item In the data class, we are basicall shifting the time points
+	in place. There are no bounds of a continuous set we must
+	respect.
+      \item In the helper class, we shift values of variables within an
+	existing continuous set. If a time point is outside of the set,
+	we have some special handling that is not present in the data class
+	method.
+    \end{itemize}
 \end{itemize}
 
 Other areas for improvement/discussion with these data structures:

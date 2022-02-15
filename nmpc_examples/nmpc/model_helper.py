@@ -2,6 +2,7 @@ from pyomo.dae.flatten import flatten_dae_components
 from pyomo.core.base.var import Var
 from pyomo.core.base.componentuid import ComponentUID
 
+from nmpc_examples.nmpc.model_linker import copy_values_at_time
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
 
 iterable_scalars = (str, bytes)
@@ -71,7 +72,8 @@ class DynamicModelHelper(object):
         is supplied.
         """
         if time is None:
-            time = self.time.first()
+            # TODO: Default should be entire time set?
+            time = self.time
         try:
             # Assume time is iterable
             time_list = list(time)
@@ -120,18 +122,20 @@ class DynamicModelHelper(object):
             for t in time_points:
                 var[t].set_value(val)
 
-    def propagate_values_at_time(self, t, target_time=None):
+    def copy_values_at_time(self, source_time=None, target_time=None):
         """
         Copy values from a particular time point to a set of time points.
         """
-        # TODO: Name. copy_values_at/from_time
+        if source_time is None:
+            source_time = self.time.first()
         if target_time is None:
             target_time = self.time
-        else:
-            target_time = list(_to_iterable(target_time))
-        for var in self.dae_vars:
-            for t_targ in target_time:
-                var[t_targ].set_value(var[t].value)
+        copy_values_at_time(
+            self.dae_vars,
+            self.dae_vars,
+            source_time,
+            target_time,
+        )
 
     def shift_values(self, dt):
         """

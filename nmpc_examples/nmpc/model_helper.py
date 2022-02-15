@@ -137,11 +137,10 @@ class DynamicModelHelper(object):
             target_time,
         )
 
-    def shift_values(self, dt):
+    def shift_values_by_time(self, dt):
         """
         Shift values in time indexed variables by a specified time offset.
         """
-        # TODO: Name. shift_values_by_time, shift_time_values
         seen = set()
         t0 = self.time.first()
         tf = self.time.last()

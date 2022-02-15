@@ -201,6 +201,8 @@ class TimeSeriesData(object):
         """
         Apply an offset to stored time points.
         """
+        # Note that this is different from what we are doing in
+        # shift_values_by_time in the helper class.
         self._time = [t + offset for t in self._time]
 
     #

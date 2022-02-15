@@ -16,6 +16,23 @@ Updating names, etc.:
 \begin{itemize}
   \item \texttt{get\_scalar\_data} $\rightarrow$
     \texttt{get\_scalar\_variable\_data}
+  \item \texttt{propagate\_values} has been replaced with the more
+    general \texttt{copy\_values\_at\_time} method.
+    Default behavior is to copy from the first time point to every
+    time point.
+  \item \texttt{shift\_values} $\rightarrow$
+    \texttt{shift\_values\_by\_time}
+  \item Added \texttt{get\_data\_at\_time\_indices} method to data class
+  \item Update \texttt{get\_data\_at\_time} in the data class to accept
+    an iterable of time points to match the API of \texttt{get\_data\_at\_time}
+    in the helper class.
+  \item Names of \texttt{shift\_time\_points} and
+    \texttt{project\_onto\_variables} are unchanged for now.
+    \begin{itemize}
+      \item Now I've changed \texttt{project\_onto\_variables} to
+	\texttt{extract\_variables} and changed the API to return a new
+	TimeSeriesData object
+    \end{itemize}
 \end{itemize}
 
 \section{Feb 9, 2022}

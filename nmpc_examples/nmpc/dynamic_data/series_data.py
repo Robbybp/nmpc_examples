@@ -135,13 +135,42 @@ class TimeSeriesData(object):
         """
         return self._data
 
-    def get_data_at_time(self, t, tolerance=None):
+    def get_data_at_time_indices(self, indices):
+        """
+        Returns data at the specified indices of this object's list
+        of time points.
+        """
+        try:
+            # Probably should raise an error if indices are not already sorted.
+            index_list = list(sorted(indices))
+            time_list = [self._time[i] for i in indices]
+            data = {
+                cuid: [values[idx] for idx in index_list]
+                for cuid, values in self._data.items()
+            }
+            time_set = self._orig_time_set
+            return TimeSeriesData(data, time_list, time_set=time_set)
+        except TypeError:
+            # indices is a scalar
+            return {
+                cuid: values[indices] for cuid, values in self._data.items()
+            }
+
+    def get_data_at_time(self, time=None, tolerance=None):
         """
         Returns "scalar data" at the specified time point.
         """
-        idx = find_nearest_index(self._time, t, tolerance=tolerance)
-        data = {cuid: values[idx] for cuid, values in self._data.items()}
-        return data
+        if time is None:
+            return self
+        try:
+            indices = [
+                find_nearest_index(self._time, t, tolerance=tolerance)
+                for t in time
+            ]
+        except TypeError:
+            # time is a scalar
+            indices = find_nearest_index(self._time, time, tolerance=tolerance)
+        return self.get_data_at_time_indices(indices)
 
     def to_serializable(self):
         """

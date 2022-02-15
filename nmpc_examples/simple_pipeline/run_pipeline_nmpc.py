@@ -212,8 +212,8 @@ def run_nmpc(
         pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,%s]" % xf),
         pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,%s]" % x0),
     ]
-    applied_inputs = m_controller_helper.get_data_at_time([t0])
-    applied_inputs.project_onto_variables(input_names)
+    controller_data = m_controller_helper.get_data_at_time([t0])
+    applied_inputs = controller_data.extract_variables(input_names)
 
     #
     # Set up a "model linker" to transfer control inputs to plant
@@ -259,9 +259,9 @@ def run_nmpc(
         #
         # Extract first inputs from controller
         #
-        extracted_inputs = m_controller_helper.get_data_at_time([ts])
-        # "Project" onto the subset of variables I want to store
-        extracted_inputs.project_onto_variables(input_names)
+        controller_data = m_controller_helper.get_data_at_time([ts])
+        # Extract only the inputs
+        extracted_inputs = controller_data.extract_variables(input_names)
         # Shift time points from "controller time" to "simulation time"
         extracted_inputs.shift_time_points(sim_t0)
 

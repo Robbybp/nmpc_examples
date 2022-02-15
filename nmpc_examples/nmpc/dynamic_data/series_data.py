@@ -102,6 +102,7 @@ class TimeSeriesData(object):
         # a time-indexed CUID. We need to know what set to slice.
         self._orig_time_set = time_set
         self._time = list(time)
+        self._time_idx_map = {t: idx for idx, t in enumerate(time)}
 
         if time is not None:
             # First make sure provided lists of variable data have the
@@ -137,7 +138,7 @@ class TimeSeriesData(object):
 
     def get_data_at_time_indices(self, indices):
         """
-        Returns data at the specified indices of this object's list
+        Returns data at the specified index or indices of this object's list
         of time points.
         """
         try:
@@ -158,17 +159,43 @@ class TimeSeriesData(object):
 
     def get_data_at_time(self, time=None, tolerance=None):
         """
+        Returns the data associated with the provided time point or points.
+        This function attempts to map time points to indices, then uses
+        get_data_at_time_indices to actually extract the data. If a provided
+        time point does not exist in the time-index map, binary search is
+        used to find the closest value within a tolerance.
+
+        Parameters
+        ----------
+        time: Float or iterable
+            The time point or points corresponding to returned data.
+        tolerance: Float
+            Tolerance within which we will search for a matching time point.
+            The default is None, which corresponds to an infinite tolerance.
+
+        Returns
+        -------
+        TimeSeriesData or dict
+            TimeSeriesData containing only the specified time points
+            or dict mapping CUIDs to values at the specified scalar time
+            point.
+
         """
         if time is None:
+            # If time is not specified, assume we want the entire time
+            # set. Skip all the overhead, don't create a new object, and
+            # return self.
             return self
         try:
             indices = [
+                self._time_idx_map[t] if t in self._time_idx_map else
                 find_nearest_index(self._time, t, tolerance=tolerance)
                 for t in time
             ]
         except TypeError:
             # time is a scalar
-            indices = find_nearest_index(self._time, time, tolerance=tolerance)
+            indices = self._time_idx_map[time] if time in self._time_idx_map \
+                else find_nearest_index(self._time, time, tolerance=tolerance)
         return self.get_data_at_time_indices(indices)
 
     def to_serializable(self):

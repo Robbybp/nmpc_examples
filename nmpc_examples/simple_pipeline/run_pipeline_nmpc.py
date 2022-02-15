@@ -76,7 +76,7 @@ def run_nmpc(
     # Extract data from setpoint model
     #
     m_setpoint_helper = DynamicModelHelper(m_setpoint, m_setpoint.fs.time)
-    setpoint_data = m_setpoint_helper.get_data_at_time()
+    setpoint_data = m_setpoint_helper.get_data_at_time(t0)
 
     #
     # Load initial inputs into steady model for initial conditions
@@ -308,7 +308,7 @@ def run_nmpc(
         # This sets new initial conditions, including inputs.
         #
         tf = m_plant.fs.time.last()
-        m_plant_helper.propagate_values_at_time(tf)
+        m_plant_helper.copy_values_at_time(source_time=tf)
 
         init_cond_linker.transfer(tf, t0)
 

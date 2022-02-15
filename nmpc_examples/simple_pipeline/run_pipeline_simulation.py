@@ -141,7 +141,7 @@ def run_simulation(
         # Re-initialize model to final values.
         # This sets new initial conditions, including inputs.
         #
-        m_helper.propagate_values_at_time(tf)
+        m_helper.copy_values_at_time(source_time=tf)
 
     return simulation_data
 

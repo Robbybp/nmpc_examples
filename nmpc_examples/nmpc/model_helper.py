@@ -124,6 +124,16 @@ class DynamicModelHelper(object):
 
     def copy_values_at_time(self, source_time=None, target_time=None):
         """
+        Copy values of all time-indexed variables from source time point
+        to target time points.
+
+        Parameters
+        ----------
+        source_time: Float
+            Time point from which to copy values.
+        target_time: Float or iterable
+            Time point or points to which to copy values.
+
         """
         if source_time is None:
             source_time = self.time.first()

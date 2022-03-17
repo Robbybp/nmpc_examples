@@ -10,6 +10,190 @@
 \begin{document}
 \maketitle
 
+\section{Feb 14, 2022}
+
+Updating names, etc.:
+\begin{itemize}
+  \item \texttt{get\_scalar\_data} $\rightarrow$
+    \texttt{get\_scalar\_variable\_data}
+  \item \texttt{propagate\_values} has been replaced with the more
+    general \texttt{copy\_values\_at\_time} method.
+    Default behavior is to copy from the first time point to every
+    time point.
+  \item \texttt{shift\_values} $\rightarrow$
+    \texttt{shift\_values\_by\_time}
+  \item Added \texttt{get\_data\_at\_time\_indices} method to data class
+  \item Update \texttt{get\_data\_at\_time} in the data class to accept
+    an iterable of time points to match the API of \texttt{get\_data\_at\_time}
+    in the helper class.
+  \item Names of \texttt{shift\_time\_points} and
+    \texttt{project\_onto\_variables} are unchanged for now.
+    \begin{itemize}
+      \item Now I've changed \texttt{project\_onto\_variables} to
+	\texttt{extract\_variables} and changed the API to return a new
+	TimeSeriesData object
+    \end{itemize}
+\end{itemize}
+
+\section{Feb 9, 2022}
+
+More problems with names:
+\begin{itemize}
+  \item \texttt{load\_data\_at\_time} should specify that we are only
+    loading scalar data (but it should be made clear that we can load
+    this data into multiple points in time)
+  \item Method for shifting time points should probably have the same
+    name between time series data object and dynamic model helper.
+    \begin{itemize}
+      \item Now (2/14) I disagree.
+      \item We are doing different things in these two functions, so they
+	should have different names
+      \item In the data class, we are basicall shifting the time points
+	in place. There are no bounds of a continuous set we must
+	respect.
+      \item In the helper class, we shift values of variables within an
+	existing continuous set. If a time point is outside of the set,
+	we have some special handling that is not present in the data class
+	method.
+    \end{itemize}
+\end{itemize}
+
+Other areas for improvement/discussion with these data structures:
+\begin{itemize}
+  \item Is a ``propagate values'' function really necessary when we
+    have ``shift values by time''?
+  \item A class for scalar data seems like it would be useful, if only to
+    process user-provided keys, e.g. when we send weight data to
+    the tracking cost expression function.
+\end{itemize}
+
+\section{Feb 8, 2022}
+
+My immediate priority is to rename some methods.
+Another question is whether a pure dictionary is an acceptable
+data type for ``scalar\_data''
+
+What problems would I like to resolve:
+\begin{itemize}
+  \item DynamicModelHelper is somewhat vague.
+  \item ``scalar data'' is ambiguous -- scalar variables or
+    scalar data (potentially from time-indexed variables)
+  \item \texttt{get\_data\_at\_time} should be consistent
+    between data class and helper class. What if an iterable is
+    passed to the helper class method.
+  \item ``propagate values'' is vague. This is hard to name
+  \item ``shift values'' is vague. ``shift values by time''
+    might be better. Needs to imply that time points are changing,
+    not data values
+  \item Is \texttt{project\_onto\_variables} clear?
+\end{itemize}
+
+\section{Feb 3, 2022}
+
+\RP
+I've updated the model helper to return data series objects directly.
+An open question (probably to pose to John and Bethany) is whether
+I should return something like a data series object for scalar
+data (which is currently just a dict with CUIDs as keys).
+
+There are enough points for dicussion here that I should focus on cleaning up
+what I have, then communicate it to John and Bethany for a design discussion.
+
+\medskip
+
+The simulation script seems to work with new data structures.
+I need to:
+\begin{itemize}
+  \item Remove commented code.
+  \item Add helpful comments and docstrings
+  \item Commit and push
+  \item Send note to Bethany and John.
+\end{itemize}
+
+\section{Feb 2, 2022}
+
+\RP
+I'm using the model serializer class every time I need to save/load scalar data,
+and to facilitate ``cycling'' of the plant and controller models.
+I'm also using it to generate time series data for data from the plant.
+I'm also using it to generate time series data at sample points from the
+controller, then manually extracting the input CUIDs.
+Inconveniences I would like to ``abstract away'':
+\begin{itemize}
+  \item Need to manually ``extend'' time series data.
+  \item Need to manually extract subsets of variables.
+\end{itemize}
+The first is probably the more inconvenient thing, and should be handled by
+a class for my dynamic data.
+
+\subsection{Class for dynamic data}
+\begin{itemize}
+  \item The first thing we need to do is initialize the data structure, which
+    right now is just a tuple.
+  \item What is the purpose of having a class rather than just a tuple
+    (or named tuple)?
+    \begin{itemize}
+      \item Instantiation (Putting things in the wrong locations of a tuple
+	gives no error.)
+      \item Convert to json-serializable. I think I have settled on using CUIDs
+	as keys. This means my structures are not directly json-serializable.
+	I should have a method to convert to json-serializable format.
+	And should be able to instantiate from json-serializable format.
+      \item Process variables/names to extract a subset of keys.
+	Calling ComponentUID repeatedly to construct keys is inconvenient.
+	In addition, a user may want to specify keys with a wide variety
+	of variable-like objects.
+      \item Method for extending. Right now you need to know about the data
+	structure to do this. There is also some error-checking we might
+	want to do.
+    \end{itemize}
+  \item An immediate question is whether I should have two different classes
+    for scalar and time series data. For now, since my main use case is
+    instantiating and extending time series data, I'll just focus on the latter
+    functionality. If what I come up with ends up being compatible with
+    scalar data, great.
+\end{itemize}
+Concatenation seems to work. Is the next thing to do manually extract subsets
+of variables?
+First, how do I like the data class so far?
+\begin{itemize}
+  \item Instantiation seems fine, but I should really return this object
+    from the helper class. If I do this, I should probably have some data
+    class for scalar data.
+  \item Two potential functionalities are shifting the time list in-place
+    and copying the entire object.
+    I'll go with the former for now. It is more directly what I want.
+  \item I need to be careful when constructing a data series using the time
+    points or data from another. I could end up extending data in one series
+    while inadvertantly extending it in another.
+    I think this is good enough motivation to add a copy method.
+\end{itemize}
+
+Extract subsets of variables:
+\begin{itemize}
+  \item What object to I want to return?
+  \item I could just alter the data series in place.
+  \item I could return a copy that only has the desired variables.
+  \item I could return a list of lists corresponding to the variables
+    provided.
+  \item All I need to do for now is alter the data series in place, which
+    is also the most convenient thing to do.
+\end{itemize}
+
+Extracting a subset via \texttt{project\_onto\_variables} seems to work.
+How do I feel about the data class?
+\begin{itemize}
+  \item I should return the data series object directly from
+    \texttt{get\_data\_at\_time}
+  \item User will have to call \texttt{project\_onto\_variables}
+    and \texttt{shift\_time\_points}. I think this is easy enough.
+\end{itemize}
+
+This has been successful so far. Next I need to go through the simulation
+script and make sure these data structures still work.
+Then I need to pull out old code, then I need to update the model helper
+to return data series objects directly.
+
 \section{Feb 1, 2022}
 
 \RP
@@ -26,6 +210,46 @@ I can actually get the tests working just by passing strings through CUID before
 sending to the tracking cost expression function.
 Now I can copy the \texttt{dynamic\_data} code out of IDAES and update my imports.
 This has been done.
+
+\medskip
+
+Is my goal to fix the tracking cost expression function or to remove code using
+a model serializer class?
+My motivation for switching to CUIDs as keys is so that inconsistencies in
+string representations, even within strings from CUIDs, don't cause errors.
+This will necessitate a class for the data object, but now I'm getting ahead
+of myself.
+I should focus on the tracking cost expression function.
+Changes to the function itself are minor. Just don't call \texttt{str} on CUIDs.
+Should this function process keys in case the user provides strings?
+I don't like this, because then we're doing an operation on every key, when
+we may only be using a small subset.
+Setpoint and weight data structures could be their own objects, however. Then
+I extract vectors for user-provided variables. Where user-provided variables
+are processed to get the representation used as a key in these data structures.
+This seems not bad. There are some tradeoffs here. This is a design question to
+pose to John and Bethany.
+Note that when a user supplies a list of variables, this induces some sort of
+order. It would be nice if the returned object preserves this order (e.g. list
+of values).
+The ``extract subset'' functionality seems like it should belong to the data
+object\ldots
+
+\medskip
+
+Okay, I can use CUIDs as keys in the tracking cost function, and return
+data structures using CUIDs as keys from the model helper.
+
+Now:
+\begin{enumerate}
+  \item Remove all dictionaries using names as keys from the model helper,
+    and remove the name generation from \texttt{\_\_init\_\_}.
+  \item Go back to the simulation and NMPC scripts, using the model wrapper
+    to remove code.
+  \item \textbf{Aside:} Should loading values into a model be a function of the
+    model wrapper or the serializable data structure. The ambitious answer is
+    both. I'm not sure what the \emph{right} answer is.
+\end{enumerate}
 
 \section{Jan 24, 2022}
 

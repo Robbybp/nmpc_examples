@@ -12,7 +12,7 @@ from nmpc_examples.nmpc import (
     get_tracking_cost_from_constant_setpoint,
 )
 from nmpc_examples.nmpc.input_constraints import (
-    get_piecewise_constant_constraint,
+    get_piecewise_constant_constraints,
 )
 
 from nmpc_examples.nmpc.model_linker import DynamicVarLinker
@@ -191,7 +191,7 @@ def run_nmpc(
     sample_points = [
         t0 + sample_period*i for i in range(samples_per_controller+1)
     ]
-    input_set, pwc_con = get_piecewise_constant_constraint(
+    input_set, pwc_con = get_piecewise_constant_constraints(
         piecewise_constant_vars,
         m_controller.fs.time,
         sample_points,

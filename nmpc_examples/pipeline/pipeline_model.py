@@ -5,6 +5,10 @@ from idaes.gas_distribution.properties.natural_gas import (
 )
 from idaes.gas_distribution.unit_models.pipeline import GasPipeline
 
+from nmpc_examples.nmpc.dynamic_data.series_data import (
+    TimeSeriesData,
+)
+
 """
 Utilies for constructing and simulating a gas pipeline model
 """
@@ -23,8 +27,7 @@ def get_simulation_inputs(
     """
     n_cycles = round(simulation_horizon/model_horizon)
     simulation_time = [model_horizon*i for i in range(n_cycles+1)]
-    input_sequence = (
-        simulation_time,
+    input_sequence = TimeSeriesData(
         {
             "fs.pipeline.control_volume.flow_mass[*,1.0]": [
                 initial_flow if t <= t_ptb else perturbed_flow
@@ -35,6 +38,7 @@ def get_simulation_inputs(
                 for t in simulation_time
                 ],
         },
+        simulation_time,
     )
     return input_sequence
 

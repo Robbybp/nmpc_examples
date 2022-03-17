@@ -8,11 +8,13 @@ from nmpc_examples.pipeline.pipeline_model import (
     get_simulation_inputs,
 )
 
-from workspace.common.dynamic_data import (
+from nmpc_examples.nmpc.dynamic_data import (
     find_nearest_index,
     interval_data_from_time_series,
     load_inputs_into_model,
 )
+
+from nmpc_examples.nmpc.model_helper import DynamicModelHelper
 
 """
 Script for running "rolling-horizon" type simulatoin with pipeline model
@@ -36,6 +38,11 @@ def run_simulation(
     time = m.fs.time
     t0 = time.first()
     tf = time.last()
+    t0_steady = m_steady.fs.time.first()
+
+    # Make helper objects to extract data from flattened variables
+    m_helper = DynamicModelHelper(m, m.fs.time)
+    m_steady_helper = DynamicModelHelper(m_steady, m_steady.fs.time)
 
     # Fix "inputs" in dynamic model: inlet pressure and outlet flow rate
     space = m.fs.pipeline.control_volume.length_domain
@@ -44,22 +51,26 @@ def run_simulation(
     m.fs.pipeline.control_volume.flow_mass[:, xf].fix()
     m.fs.pipeline.control_volume.pressure[:, x0].fix()
 
+    #
+    # Get sequence of input values. This is a TimeSeriesData object
+    #
     input_sequence = get_simulation_inputs(
         simulation_horizon=simulation_horizon,
         t_ptb=t_ptb,
     )
-    n_cycles = len(input_sequence[0])-1
-    simulation_horizon = input_sequence[0][-1]
+    sim_sample_points = input_sequence.get_time_points()
+    n_cycles = len(sim_sample_points) - 1
+    simulation_horizon = sim_sample_points[-1]
 
     #
     # Load initial inputs into steady model
     #
-    initial_inputs = {
-        name: values[0] for name, values in input_sequence[1].items()
-    }
-    t0_steady = m_steady.fs.time.first()
-    for name, val in initial_inputs.items():
-        m_steady.find_component(name)[t0_steady].fix(val)
+    initial_inputs = input_sequence.get_data_at_time(t0_steady)
+    m_steady_helper.load_data_at_time(initial_inputs)
+
+    # Fix inputs in steady state model
+    m_steady.fs.pipeline.control_volume.flow_mass[:, xf].fix()
+    m_steady.fs.pipeline.control_volume.pressure[:, x0].fix()
 
     ipopt = pyo.SolverFactory("ipopt")
     ipopt.solve(m_steady, tee=True)
@@ -67,43 +78,28 @@ def run_simulation(
     #
     # Extract data from steady state model
     #
-    steady_scalar_vars, steady_dae_vars = flatten_dae_components(
-        m_steady, m_steady.fs.time, pyo.Var
-    )
-    initial_data = {
-        str(pyo.ComponentUID(var.referent)): var[t0_steady].value
-        for var in steady_dae_vars
-    }
-    scalar_data = {
-        str(pyo.ComponentUID(var)): var.value for var in steady_scalar_vars
-    }
+    scalar_data = m_steady_helper.get_scalar_variable_data()
+    initial_data = m_steady_helper.get_data_at_time(time=t0_steady)
 
     #
     # Load data into dynamic model
     #
-    for name, val in scalar_data.items():
-        m.find_component(name).set_value(val)
-    for name, val in initial_data.items():
-        var = m.find_component(name)
-        for t in time:
-            var[t].set_value(val)
+    m_helper.load_scalar_data(scalar_data)
+    m_helper.load_data_at_time(initial_data, m.fs.time)
+    # ^ time here is an optional argument. Default is to load at all time
+    # Note here that we're loading "scalar data" into time-indexed variables
+    # at all time. Is this clear from the code?
 
     # Solve as a sanity check -- should be square with zero infeasibility
-    ipopt.solve(m, tee=True)
+    res = ipopt.solve(m, tee=True)
+    pyo.assert_optimal_termination(res)
 
     #
     # Initialize data structure for simulation data
     #
-    scalar_vars, dae_vars = flatten_dae_components(m, time, pyo.Var)
-    simulation_data = (
-        [t0],
-        {
-            str(pyo.ComponentUID(var.referent)): [var[t0].value]
-            for var in dae_vars
-        },
-    )
+    # The returned type is TimeSeriesData
+    simulation_data = m_helper.get_data_at_time([t0])
 
-    simulation_time = input_sequence[0]
     for i in range(n_cycles):
         # time.first() in the model corresponds to sim_t0 in "simulation time"
         # time.last() in the model corresponds to sim_tf in "simulation time"
@@ -111,31 +107,15 @@ def run_simulation(
         sim_tf = (i+1)*model_horizon
 
         #
-        # Extract inputs of sequence that are between sim_t0 and sim_tf
+        # Extract data from input sequence and load into the dynamic model
         #
-        idx_t0 = find_nearest_index(simulation_time, sim_t0)
-        idx_tf = find_nearest_index(simulation_time, sim_tf)
-        extracted_inputs = (
-            simulation_time[idx_t0:idx_tf + 1],
-            {
-                name: values[idx_t0:idx_tf + 1]
-                for name, values in input_sequence[1].items()
-            },
-        )
-        extracted_inputs = interval_data_from_time_series(extracted_inputs)
-        
-        #
-        # Apply offset to time points so they are valid for model
-        #
-        offset = sim_t0
-        inputs_for_model = {
-            name: {
-                (interval[0]-offset, interval[1]-offset): val
-                for interval, val in inputs.items()
-            } for name, inputs in extracted_inputs.items()
-        }
-
-        load_inputs_into_model(m, time, inputs_for_model)
+        non_initial_time = list(time)[1:]
+        inputs_to_apply = input_sequence.get_data_at_time(sim_tf)
+        # Here we are assuming that we want to apply the same input
+        # values at every point in time.
+        # Becaucse we use an implicit discretization, we don't need
+        # to apply inputs at t0.
+        m_helper.load_data_at_time(inputs_to_apply, non_initial_time)
 
         ipopt.solve(m, tee=True)
 
@@ -145,36 +125,23 @@ def run_simulation(
         # Initial conditions have already been accounted for.
         # Note that this is only correct because we're using an implicit
         # time discretization.
-        non_initial_time = list(time)[1:]
-        model_data = (
-            non_initial_time,
-            {
-                str(pyo.ComponentUID(var.referent)): [
-                    var[t].value for t in non_initial_time
-                ] for var in dae_vars
-            },
-        )
+        model_data = m_helper.get_data_at_time(non_initial_time)
 
         #
         # Apply offset to data from model
         #
-        new_time_points = [t+offset for t in non_initial_time]
-        new_sim_data = (new_time_points, dict(model_data[1]))
+        model_data.shift_time_points(sim_t0)
 
         #
         # Extend simulation data with result of new simulation
         #
-        simulation_data[0].extend(new_time_points)
-        for name, values in simulation_data[1].items():
-            values.extend(new_sim_data[1][name])
+        simulation_data.concatenate(model_data)
 
         #
         # Re-initialize model to final values.
-        # This includes setting new initial conditions.
+        # This sets new initial conditions, including inputs.
         #
-        for var in dae_vars:
-            for t in time:
-                var[t].set_value(var[tf].value)
+        m_helper.copy_values_at_time(source_time=tf)
 
     return simulation_data
 

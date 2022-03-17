@@ -13,6 +13,8 @@
 from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
+from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
+
 def get_tracking_cost_from_constant_setpoint(
         variables,
         time,
@@ -42,30 +44,29 @@ def get_tracking_cost_from_constant_setpoint(
     squared difference between variables and setpoint values.
 
     """
-    variable_names = [
-        str(ComponentUID(var))
-        if not var.is_reference()
-        else str(ComponentUID(var.referent))
+    cuids = [
+        get_time_indexed_cuid(var, sets=(time,))
         for var in variables
     ]
     if weight_data is None:
-        weight_data = {name: 1.0 for name in variable_names}
-    for i, name in enumerate(variable_names):
-        if name not in setpoint_data:
+        #weight_data = {name: 1.0 for name in variable_names}
+        weight_data = {cuid: 1.0 for cuid in cuids}
+    for i, cuid in enumerate(cuids):
+        if cuid not in setpoint_data:
             raise KeyError(
                 "Setpoint data dictionary does not contain a key for variable\n"
-                "%s with ComponentUID %s" % (variables[i].name, name)
+                "%s with ComponentUID %s" % (variables[i].name, cuid)
             )
-        if name not in weight_data:
+        if cuid not in weight_data:
             raise KeyError(
                 "Tracking weight dictionary does not contain a key for "
-                "variable\n%s with ComponentUID %s" % (variables[i].name, name)
+                "variable\n%s with ComponentUID %s" % (variables[i].name, cuid)
             )
 
     def tracking_rule(m, t):
         return sum(
-            weight_data[name] * (var[t] - setpoint_data[name])**2
-            for name, var in zip(variable_names, variables)
+            weight_data[cuid] * (var[t] - setpoint_data[cuid])**2
+            for cuid, var in zip(cuids, variables)
         )
     tracking_expr = Expression(time, rule=tracking_rule)
     return tracking_expr

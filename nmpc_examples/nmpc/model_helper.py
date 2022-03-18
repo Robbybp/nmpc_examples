@@ -73,7 +73,9 @@ class DynamicModelHelper(object):
         """
         if time is None:
             # TODO: Default should be entire time set?
-            time = self.time
+            # What about for steady models? Should this branch on length
+            # of time?
+            time = self.time if len(self.time) > 1 else self.time.at(1)
         try:
             # Assume time is iterable
             time_list = list(time)

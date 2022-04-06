@@ -12,13 +12,13 @@ from nmpc_examples.nmpc import (
 
 def get_setpoint_data():
     return {
-        "Ca[*]": 0.018,
+        pyo.ComponentUID("Ca[*]"): 0.018,
     }
 
 
 def get_objective_weight_data():
     return {
-        "Ca[*]": 1.0,
+        pyo.ComponentUID("Ca[*]"): 1.0,
     }
 
 
@@ -58,7 +58,7 @@ def set_up_controller(
     )
     # Overriding setpoint_data here...
     setpoint_data = {
-        str(pyo.ComponentUID(var.referent)): var[t0_setpoint].value
+        pyo.ComponentUID(var.referent): var[t0_setpoint].value
         for var in setpoint_dae_vars
     }
     ###
@@ -326,7 +326,7 @@ def run_nmpc(
         },
     )
 
-    return sim_data, applied_input_data
+    return plant_data, applied_input_data
 
 
 if __name__ == "__main__":

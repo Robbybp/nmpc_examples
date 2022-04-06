@@ -29,7 +29,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
     # Should this function be generalized beyond a single indexing set?
     if isinstance(var, ComponentUID):
         return var
-    elif isinstance(var, str):
+    elif isinstance(var, (str, IndexedComponent_slice)):
         return ComponentUID(var)
     # At this point we are assuming var is a Pyomo Var or VarData object.
 

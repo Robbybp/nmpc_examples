@@ -157,6 +157,9 @@ class TimeSeriesData(object):
                 cuid: values[indices] for cuid, values in self._data.items()
             }
 
+    # TODO: Should there be a get_scalar_data_at_time method that replaces
+    # the functionality of get_data_at_time with a scalar time point?
+
     def get_data_at_time(self, time=None, tolerance=None):
         """
         Returns the data associated with the provided time point or points.
@@ -193,6 +196,7 @@ class TimeSeriesData(object):
                 for t in time
             ]
         except TypeError:
+            # TODO: Probably shouldn't rely on TypeError here.
             # time is a scalar
             indices = self._time_idx_map[time] if time in self._time_idx_map \
                 else find_nearest_index(self._time, time, tolerance=tolerance)

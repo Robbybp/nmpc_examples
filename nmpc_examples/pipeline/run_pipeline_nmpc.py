@@ -32,8 +32,7 @@ def run_nmpc(
         sample_period=2.0,
         ):
     """
-    Runs a simulation where outlet (demand) flow rate is perturbed
-    at a specified time.
+    Run a simple NMPC problem on a pipeline model.
     """
     #
     # Make steady model (for initial conditions) and dynamic model
@@ -203,12 +202,15 @@ def run_nmpc(
     # Initialize dynamic model to initial steady state
     #
     m_controller_helper.load_scalar_data(scalar_data)
-    m_controller_helper.load_data_at_time(initial_data, time)
+    m_controller_helper.load_data_at_time(initial_data, m_controller.fs.time)
 
     #
     # Initialize data structure for controller inputs
     #
     input_names = [
+        # FIXME: This doesn't work:
+        #m_controller.fs.pipeline.control_volume.flow_mass[t0,xf],
+        #m_controller.fs.pipeline.control_volume.pressure[t0,x0],
         pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,%s]" % xf),
         pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,%s]" % x0),
     ]
@@ -253,7 +255,8 @@ def run_nmpc(
         #
         # Solve dynamic optimization problem to get inputs
         #
-        ipopt.solve(m_controller, tee=True)
+        res = ipopt.solve(m_controller, tee=True)
+        pyo.assert_optimal_termination(res)
 
         ts = sample_points[1]
         #

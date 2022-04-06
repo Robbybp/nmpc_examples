@@ -220,6 +220,9 @@ def run_nmpc(
     #
     # Set up a "model linker" to transfer control inputs to plant
     #
+    # TODO: Should we process keys here to get the variables from
+    # a wide range of inputs? A challenge here is that we need
+    # to actually get the Pyomo variables.
     controller_input_vars = [
         m_controller.find_component(name) for name in input_names
     ]

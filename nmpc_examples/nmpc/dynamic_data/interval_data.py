@@ -10,6 +10,9 @@
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
 # license information.
 #################################################################################
+from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
+    find_nearest_index,
+)
 
 def assert_disjoint_intervals(intervals):
     """
@@ -140,3 +143,31 @@ def interval_data_from_time_series(data, use_left_endpoint=False):
             ]
             interval_data[name] = dict(zip(intervals, interval_values))
         return interval_data
+
+
+def time_series_from_interval_data(
+    interval_data, time, use_left_endpoint=False, time_tol=0,
+):
+    """
+    """
+    time_points = list(time)
+    data = {}
+    for cuid, inputs in interval_data.items():
+        intervals = list(sorted(inputs.keys()))
+        assert_disjoint_intervals(intervals)
+        for i, interval in enumerate(intervals):
+            idx0 = find_nearest_index(
+                time_points, interval[0], tolerance=time_tol
+            )
+            idx1 = find_nearest_index(
+                time_points, interval[1], tolerance=time_tol
+            )
+            if idx0 is None or idx1 is None:
+                # One of the interval boundaries is not a valid time index
+                # within tolerance. Skip this interval and move on.
+                continue
+            input_val = inputs[interval]
+            idx_iter = range(idx0 + 1, idx1 + 1) if idx0 != idx1 else (idx0,)
+            for idx in idx_iter:
+                t = time.at(idx)
+                var[t].set_value(input_val)

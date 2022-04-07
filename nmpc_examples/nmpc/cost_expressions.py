@@ -17,11 +17,11 @@ from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
 
 
 def get_tracking_cost_from_constant_setpoint(
-        variables,
-        time,
-        setpoint_data,
-        weight_data=None,
-        ):
+    variables,
+    time,
+    setpoint_data,
+    weight_data=None,
+):
     """
     This function returns a tracking cost expression for the given time-indexed
     variables and associated setpoint data.
@@ -74,3 +74,14 @@ def get_tracking_cost_from_constant_setpoint(
         )
     tracking_expr = Expression(time, rule=tracking_rule)
     return tracking_expr
+
+
+def get_tracking_cost_from_piecewise_constant_setpoint(
+    variables,
+    time,
+    setpoint_data,
+    weight_data=None,
+):
+    # - Setpoint data is in the form of "interval data"
+    # - Need to convert to time series data 
+    pass

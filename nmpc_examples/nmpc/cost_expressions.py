@@ -49,6 +49,9 @@ def get_tracking_cost_from_constant_setpoint(
         get_time_indexed_cuid(var, sets=(time,))
         for var in variables
     ]
+    # TODO: Weight data (and setpoint data) are user-provided and don't
+    # necessarily have CUIDs as keys. Should I processes the keys here
+    # with get_time_indexed_cuid?
     if weight_data is None:
         #weight_data = {name: 1.0 for name in variable_names}
         weight_data = {cuid: 1.0 for cuid in cuids}

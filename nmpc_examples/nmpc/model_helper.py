@@ -85,7 +85,7 @@ class DynamicModelHelper(object):
             }
             # Return a TimeSeriesData object, as this is more convenient
             # for the calling code.
-            return TimeSeriesData(data, time_list, time_set=time)
+            return TimeSeriesData(data, time_list, time_set=self.time)
         except TypeError:
             # time is a scalar
             # Maybe checking if time is an instance of numeric_types would

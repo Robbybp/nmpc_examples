@@ -15,6 +15,7 @@ from pyomo.core.base.expression import Expression
 
 from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
 
+
 def get_tracking_cost_from_constant_setpoint(
         variables,
         time,

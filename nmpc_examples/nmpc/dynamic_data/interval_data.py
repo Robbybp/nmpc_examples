@@ -10,6 +10,7 @@
 # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and
 # license information.
 #################################################################################
+from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
 from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
     find_nearest_index,
 )
@@ -146,28 +147,62 @@ def interval_data_from_time_series(data, use_left_endpoint=False):
 
 
 def time_series_from_interval_data(
-    interval_data, time, use_left_endpoint=False, time_tol=0,
+    interval_data,
+    time,
+    use_left_endpoint=False,
+    time_tol=0,
 ):
     """
     """
+    # 
+    # for t in time
     time_points = list(time)
     data = {}
     for cuid, inputs in interval_data.items():
         intervals = list(sorted(inputs.keys()))
         assert_disjoint_intervals(intervals)
-        for i, interval in enumerate(intervals):
-            idx0 = find_nearest_index(
-                time_points, interval[0], tolerance=time_tol
-            )
-            idx1 = find_nearest_index(
-                time_points, interval[1], tolerance=time_tol
-            )
-            if idx0 is None or idx1 is None:
-                # One of the interval boundaries is not a valid time index
-                # within tolerance. Skip this interval and move on.
-                continue
-            input_val = inputs[interval]
-            idx_iter = range(idx0 + 1, idx1 + 1) if idx0 != idx1 else (idx0,)
-            for idx in idx_iter:
-                t = time.at(idx)
-                var[t].set_value(input_val)
+        data[cuid] = []
+        idx = 0
+        n_intervals = len(intervals)
+        n_time = len(time)
+        for i, t in enumerate(time):
+            # Loop over time points. We will check if the time point
+            # is in our current interval. If not, we advance the interval.
+            while idx < n_intervals:
+                lo, hi = intervals[idx]
+                if t < lo - time_tol:
+                    # Since time points and intervals are sorted, if the
+                    # time point is to the left of the current interval,
+                    # it does not exist in the provided interval data.
+                    raise ValueError(
+                        "Interval data did not provide a value for %s" % t
+                    )
+
+                # i is t's index in time
+                if use_left_endpoint or i == 0:
+                    # Always allow the first time point to be equal to the
+                    # left endpoint of an interval
+                    t_in_interval = (t >= lo - time_tol and t < hi - time_tol)
+                elif not use_left_endpoint or i == n_time - 1:
+                    # Always allow the last time point to be equal to the
+                    # right endpoint of an interval
+                    t_in_interval = (t > lo + time_tol and t <= hi + time_tol)
+
+                if t_in_interval:
+                    # We have set data[cuid] for the current time point.
+                    # There may be more time points in this interval, so
+                    # we advance to the next time point without advancing
+                    # the interval index.
+                    data[cuid].append(inputs[lo, hi])
+                    break
+                else:
+                    # t is outside of our current interval, advance the
+                    # interval index and try again.
+                    idx += 1
+
+            if idx == n_intervals:
+                raise ValueError(
+                    "Interval data did not provide a value for %s" % t
+                )
+
+    return TimeSeriesData(data, time, time_set=time)

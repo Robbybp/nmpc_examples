@@ -14,6 +14,9 @@ from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
 from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
+from nmpc_examples.nmpc.dynamic_data.interval_data import (
+    time_series_from_interval_data,
+)
 
 
 def get_tracking_cost_from_constant_setpoint(
@@ -84,4 +87,79 @@ def get_tracking_cost_from_piecewise_constant_setpoint(
 ):
     # - Setpoint data is in the form of "interval data"
     # - Need to convert to time series data 
-    pass
+    # - get_tracking_cost_from_time_varying_setpoint()
+    setpoint_time_series = time_series_from_interval_data(setpoint_data, time)
+    tracking_cost = get_tracking_cost_from_time_varying_setpoint(
+        variables, time, setpoint_time_series, weight_data=weight_data
+    )
+    return tracking_cost
+
+
+def get_quadratic_tracking_cost_at_time(var, t, setpoint, weight=None):
+    if weight is None:
+        weight = 1.0
+    return weight * (var[t] - setpoint)**2
+
+
+def get_tracking_cost_expressions_from_time_varying_setpoint(
+    variables,
+    time,
+    setpoint_data,
+    weight_data=None,
+):
+    cuids = [
+        get_time_indexed_cuid(var, sets=(time,))
+        for var in variables
+    ]
+    # TODO: Weight data (and setpoint data) are user-provided and don't
+    # necessarily have CUIDs as keys. Should I processes the keys here
+    # with get_time_indexed_cuid?
+    if weight_data is None:
+        #weight_data = {name: 1.0 for name in variable_names}
+        weight_data = {cuid: 1.0 for cuid in cuids}
+
+    # Here, setpoint_data is a TimeSeriesData object. Need to get
+    # the actual dictionary that we can use for lookup.
+    setpoint_dict = setpoint_data.get_data()
+
+    for i, cuid in enumerate(cuids):
+        if cuid not in setpoint_dict:
+            raise KeyError(
+                "Setpoint data dictionary does not contain a key for variable\n"
+                "%s with ComponentUID %s" % (variables[i].name, cuid)
+            )
+        if cuid not in weight_data:
+            raise KeyError(
+                "Tracking weight dictionary does not contain a key for "
+                "variable\n%s with ComponentUID %s" % (variables[i].name, cuid)
+            )
+    tracking_costs = [
+        {
+            t: get_quadratic_tracking_cost_at_time(
+                var, t, setpoint_dict[cuid][i], weight_data[cuid]
+            ) for i, t in enumerate(time)
+        } for var, cuid in zip(variables, cuids)
+    ]
+    return tracking_costs
+
+
+def get_tracking_cost_from_time_varying_setpoint(
+    variables,
+    time,
+    setpoint_data,
+    weight_data=None,
+):
+    """
+    """
+    # This is a list of dictionaries, one for each variable and each
+    # mapping each time point to the quadratic weighted tracking cost term
+    # at that time point.
+    tracking_costs = get_tracking_cost_expressions_from_time_varying_setpoint(
+        variables, time, setpoint_data, weight_data=weight_data
+    )
+
+    def tracking_rule(m, t):
+        return sum(cost[t] for cost in tracking_costs)
+    tracking_cost = Expression(time, rule=tracking_rule)
+    return tracking_cost
+

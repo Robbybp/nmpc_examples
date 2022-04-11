@@ -60,6 +60,21 @@ def get_penalty_expressions_at_time(
     return penalties
 
 
+def get_penalty_at_time(
+    variables,
+    time,
+    t,
+    target_data,
+    weight_data=None,
+):
+    terminal_penalty = Expression(
+        expr=sum(get_penalty_expressions_at_time(
+            variables, time, t, target_data, weight_data
+        ))
+    )
+    return terminal_penalty
+
+
 def get_terminal_penalty(
     variables,
     time,
@@ -67,9 +82,11 @@ def get_terminal_penalty(
     weight_data=None,
 ):
     t = time.last()
-    terminal_penalty = Expression(
-        expr=sum(get_penalty_expressions_at_time(
-            variables, time, t, target_data, weight_data
-        ))
+    #terminal_penalty = Expression(
+    #    expr=sum(get_penalty_expressions_at_time(
+    #        variables, time, t, target_data, weight_data
+    #    ))
+    #)
+    return get_penalty_at_time(
+        variables, time, t, target_data, weight_data=weight_data
     )
-    return terminal_penalty

@@ -1,6 +1,8 @@
 from pyomo.dae.flatten import flatten_dae_components
 from pyomo.core.base.var import Var
+from pyomo.core.base.expression import Expression
 from pyomo.core.base.componentuid import ComponentUID
+from pyomo.core.expr.numeric_expr import value as pyo_value
 
 from nmpc_examples.nmpc.model_linker import copy_values_at_time
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
@@ -34,10 +36,13 @@ class DynamicModelHelper(object):
         with respect to this set and generate CUIDs with wildcards.
         """
         scalar_vars, dae_vars = flatten_dae_components(model, time, Var)
+        scalar_expr, dae_expr = flatten_dae_components(model, time, Expression)
         self.model = model
         self.time = time
         self.scalar_vars = scalar_vars
         self.dae_vars = dae_vars
+        self.scalar_expr = scalar_expr
+        self.dae_expr = dae_expr
 
         # Use buffer to reduce repeated work during name/cuid generation
         cuid_buffer = {}
@@ -48,6 +53,11 @@ class DynamicModelHelper(object):
         self.dae_var_cuids = [
             ComponentUID(var.referent, cuid_buffer=cuid_buffer)
             for var in self.dae_vars
+        ]
+
+        self.dae_expr_cuids = [
+            ComponentUID(expr.referent, cuid_buffer=cuid_buffer)
+            for expr in self.dae_expr
         ]
 
     def get_scalar_variable_data(self):
@@ -65,7 +75,7 @@ class DynamicModelHelper(object):
             for cuid, var in zip(self.scalar_var_cuids, self.scalar_vars)
         }
 
-    def get_data_at_time(self, time=None):
+    def get_data_at_time(self, time=None, include_expr=False):
         """
         Gets data at a single time point or set of time point. Note that
         the returned type changes depending on whether a scalar or iterable
@@ -83,6 +93,11 @@ class DynamicModelHelper(object):
                 cuid: [var[t].value for t in time]
                 for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
             }
+            if include_expr:
+                data.update({
+                    cuid: [pyo_value(expr[t]) for t in time]
+                    for cuid, expr in zip(self.dae_expr_cuids, self.dae_expr)
+                })
             # Return a TimeSeriesData object, as this is more convenient
             # for the calling code.
             return TimeSeriesData(data, time_list, time_set=self.time)
@@ -92,10 +107,16 @@ class DynamicModelHelper(object):
             # be better.
             # Return a dict mapping CUIDs to values. Should I have a similar
             # class for "scalar data"?
-            return {
+            data = {
                 cuid: var[time].value
                 for cuid, var in zip(self.dae_var_cuids, self.dae_vars)
             }
+            if include_expr:
+                data.update({
+                    cuid: pyo_value(expr[time])
+                    for cuid, expr in zip(self.dae_expr_cuids, self.dae_expr)
+                })
+            return data
 
     def load_scalar_data(self, data):
         """

@@ -136,6 +136,8 @@ def get_tracking_cost_expressions_from_time_varying_setpoint(
     tracking_costs = [
         {
             t: get_quadratic_tracking_cost_at_time(
+                # NOTE: Here I am assuming that the first n_t points in the
+                # setpoint dict should be used...
                 var, t, setpoint_dict[cuid][i], weight_data[cuid]
             ) for i, t in enumerate(time)
         } for var, cuid in zip(variables, cuids)

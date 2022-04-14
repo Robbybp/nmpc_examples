@@ -14,6 +14,7 @@ from .interval_data import (
     assert_disjoint_intervals,
     load_inputs_into_model,
     interval_data_from_time_series,
+    time_series_from_interval_data,
 )
 from .find_nearest_index import (
     find_nearest_index,

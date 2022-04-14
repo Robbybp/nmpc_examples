@@ -3,6 +3,7 @@ from collections import namedtuple
 from pyomo.core.base.componentuid import ComponentUID
 from pyomo.util.slices import slice_component_along_sets
 from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
+from pyomo.dae.flatten import get_slice_for_set
 
 from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
     find_nearest_index,
@@ -65,6 +66,15 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
             # But then maybe we should slice only the sets we care about...
             # Don't want to do anything with these sets unless we're
             # presented with a vardata...
+            #
+            # Should we call flatten.slice_component_along_sets? Then we
+            # might need to return/yield multiple components here...
+            # I like making this a "simple" function. The caller can call
+            # slice_component_along_set on their input data if they expect
+            # to have components indexed by multiple sets.
+            #
+            # TODO: Assert that we're only indexed by the specified set(s)?
+            # (If these sets are provided, of course...)
             index = tuple(
                 get_slice_for_set(s) for s in var.index_set().subsets()
             )

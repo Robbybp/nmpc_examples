@@ -229,7 +229,7 @@ class TimeSeriesData(object):
         # i.e. violating sorted order. We don't assume that anywhere yet,
         # but it may be convenient to eventually.
         time = self._time.extend(other.get_time_points())
-        
+
         data = self._data
         other_data = other.get_data()
         for cuid, values in data.items():

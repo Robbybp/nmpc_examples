@@ -16,23 +16,62 @@ from pyomo.core.base.constraint import Constraint
 from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
-from pyomo.common.collections import ComponentSet
-
 from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
 
 
 def curr_sample_point(tp, sample_points):
+    """
+    This function returns the sample point to which the given time element
+    belongs.
+
+    Arguments
+    ---------
+    tp: float
+        Time element
+    sample_points: iterable
+        Set of sample points
+
+    Returns
+    -------
+    A sample point to which the given time element belongs.
+
+    """
     for spt in sample_points:
         if spt >= tp:
             return spt
 
 
 def construct_measurement_variables_constraints(
-    # block,
     sample_points,
     variables,
 ):
+    """
+    This function constructs components for measurments, including:
+    1. Index set for measurements
+    2. Variables for measurements and measurement errors
+    2. Constraints for measured variables, measurements, and measurement
+    errors.
 
+    Arguments
+    ---------
+    sample_points: iterable
+        Set of sample points
+    variables: list
+        List of time-indexed variables that are measured
+
+    Returns
+    -------
+    meas_set: Pyomo Set
+        Index set for measurements
+    meas_var: Pyomo Var
+        Measurement variable, indexed by meas_set and sample_points
+    meas_error_var: Pyomo Var
+        Measurement error variable, indexed by meas_set and sample_points
+    meas_con: Pyomo Constraint
+        measurement constraint, indexed by meas_set and sample_points,
+            **measurement == measured_var + measurement_error**
+
+    """
     meas_set = Set(initialize=range(len(variables)))
     meas_var = Var(meas_set, sample_points)
     meas_error_var = Var(meas_set, sample_points, initialize=0.0)
@@ -52,7 +91,34 @@ def construct_disturbed_model_constraints(
     sample_points,
     mod_constraints,
 ):
+    """
+    This function constructs components for model disturbances, including:
+    1. Index set for model disturbances
+    2. Variables for model disturbances
+    3. Disturbed model constraints, consisting of original model constraints
+    and model disturbances.
 
+    Arguments
+    ----------
+    time: iterable
+        Set by which to index model constraints
+    sample_points: iterable
+        Set of sample points
+    mod_constraints : list
+        List of model constraints to add model disturbances
+
+    Returns
+    -------
+    disturbance_set: Pyomo Set
+        Index set of model disturbances
+    disturbance_var: Pyomo Var
+        Model disturbance variable, indexed by disturbance_set and time
+    disturbed_con: Pyomo Constraint
+        Model constraints with model disturbances, indexed by disturbance_set
+        and time,
+            ** original_constraint + disturbance == 0.0 **
+
+    """
     disturbance_set = Set(initialize=range(len(mod_constraints)))
     disturbance_var = Var(disturbance_set, sample_points, initialize=0.0)
 
@@ -71,6 +137,9 @@ def construct_disturbed_model_constraints(
         if con_ele.lower.value != con_ele.upper.value:
             raise RuntimeError(con_ele_name, " has different lower and upper "
                                "bounds.")
+        if con_ele.upper.value != 0.0:
+            raise RuntimeError(con_ele_name, " is an equality but its bound "
+                               "is not zero.")
 
         spt = curr_sample_point(i, sample_points)
 
@@ -90,7 +159,26 @@ def activate_disturbed_constraints_based_on_original_constraints(
     mod_constraints,
     disturbed_con,
 ):
+    """
+    This function activate the model constraint and deactivate the original
+    constraint, if the original constarint is active. Also, if all model
+    constraints within a specific sample period are not active, fix the
+    disturbance variable at zero.
 
+    Parameters
+    ----------
+    time: iterable
+        Set which indexes model constraints
+    sample_points: iterable
+        Set of sample points
+    disturbance_var: Pyomo Var
+        Model disturbances
+    mod_constraints: list
+        List of original model constraints
+    disturbed_con: Pyomo Constraint
+        Model constraints with model disturbances
+
+    """
     # Deactivate original equalities and activate disturbed equalities
     for index, con in enumerate(mod_constraints):
         for tp in time:
@@ -112,9 +200,9 @@ def activate_disturbed_constraints_based_on_original_constraints(
 
     for index in range(len(mod_constraints)):
         for spt in sample_points:
-            con_active_list = [disturbed_con[index, tp].active
-                               for tp in spt_saw_tp[spt]
-                               ]
+            con_active_list = [
+                disturbed_con[index, tp].active for tp in spt_saw_tp[spt]
+            ]
             if not any(con_active_list):
                 disturbance_var[index, spt].fix(0.0)
 
@@ -142,6 +230,7 @@ def get_error_disturbance_cost(
     )
 
     return error_disturbance_cost
+
 
 # def get_error_disturbance_cost(
 #     time,

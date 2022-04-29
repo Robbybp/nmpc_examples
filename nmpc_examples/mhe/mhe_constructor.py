@@ -168,7 +168,7 @@ def activate_disturbed_constraints_based_on_original_constraints(
     Parameters
     ----------
     time: iterable
-        Set which indexes model constraints
+        Time set which indexes model constraints
     sample_points: iterable
         Set of sample points
     disturbance_var: Pyomo Var
@@ -214,11 +214,49 @@ def get_error_disturbance_cost(
     error_dist_var,
     weight_data=None,
 ):
+    """
+    #TODO: This function is similar to "get_tracking_cost_from_constant_setpoint",
+    #Should I merge this one to that one?
+    This function return a squared cost expression for measurement errors or
+    model disturbances.
 
+    Arguments
+    ---------
+    time: iterable
+        Time set which indexes components (measured variables or
+        model constraints)
+    sample_points: iterable
+        Set of sample points
+    components: List
+        List of components (measured variables or model constraints)
+    error_dist_var: Pyomo Var
+        Variable of measurement error
+        from "construct_measurement_variables_constraints"
+        or model disturbance
+        from "construct_disturbed_model_constraints"
+    weight_data: dict
+        Optional. Maps variable names to squared cost weights. If not provided,
+        weights of one are used.
+
+    Returns
+    -------
+    Pyomo Expression, indexed by sample_points, containing the sum of squared
+    errors or disturbances.
+
+    """
     component_cuids = [
         get_time_indexed_cuid(comp, sets=(time,))
         for comp in components
     ]
+
+    if weight_data is None:
+        weight_data = {cuid: 1.0 for cuid in cuids}
+    for i, cuid in enumerate(cuids):
+        if cuid not in weight_data:
+            raise KeyError(
+                "Error/disturbance weight dictionary does not contain a key for "
+                "variable\n%s with ComponentUID %s" % (variables[i].name, cuid)
+            )
 
     def error_disturbance_rule(m, spt):
         return sum(
@@ -228,7 +266,6 @@ def get_error_disturbance_cost(
     error_disturbance_cost = Expression(
         sample_points, rule=error_disturbance_rule
     )
-
     return error_disturbance_cost
 
 

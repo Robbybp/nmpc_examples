@@ -251,7 +251,7 @@ def get_error_disturbance_cost(
 
     if weight_data is None:
         weight_data = {cuid: 1.0 for cuid in cuids}
-    for i, cuid in enumerate(cuids):
+    for i, cuid in enumerate(component_cuids):
         if cuid not in weight_data:
             raise KeyError(
                 "Error/disturbance weight dictionary does not contain a key for "

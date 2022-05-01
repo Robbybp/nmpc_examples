@@ -16,6 +16,7 @@ from nmpc_examples.nmpc.model_helper import DynamicModelHelper
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
 
 import json
+import os
 import matplotlib.pyplot as plt
 
 """
@@ -274,7 +275,9 @@ def run_mhe(
     #
     # Load control input data for simulation
     #
-    with open("control_input_data.json", "r") as fr:
+    directory = os.path.abspath(os.path.dirname(__file__))
+    filepath = os.path.join(directory, "control_input_data.json")
+    with open(filepath, "r") as fr:
         control_data = json.load(fr)
 
     control_input_time = [i*sample_period for i in range(len(control_data))]

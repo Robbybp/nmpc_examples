@@ -277,10 +277,10 @@ def run_mhe(
     with open("control_input_data.json", "r") as fr:
         control_data = json.load(fr)
 
+    control_input_time = [i*sample_period for i in range(len(control_data))]
     control_inputs = TimeSeriesData(
-        control_data, range(len(control_data)), time_set=None
+        control_data, control_input_time, time_set=None
     )
-
 
     for i in range(n_cycles):
         # time.first() in the model corresponds to sim_t0 in "simulation time"
@@ -291,7 +291,7 @@ def run_mhe(
         #
         # Load inputs into plant
         #
-        current_control = control_inputs.get_data_at_time_indices(indices=i)
+        current_control = control_inputs.get_data_at_time(time=sim_t0)
         non_initial_plant_time = list(m_plant.fs.time)[1:]
         m_plant_helper.load_data_at_time(
             current_control, non_initial_plant_time

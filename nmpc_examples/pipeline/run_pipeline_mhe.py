@@ -57,7 +57,7 @@ def run_mhe(
     m_plant.fs.pipeline.control_volume.pressure[:, x0].fix()
 
     #
-    # Make steady model for past data
+    # Make steady model for plant's and estimator's initializations
     #
     m_steady = make_model(dynamic=False, nxfe=nxfe)
     m_steady.fs.pipeline.control_volume.flow_mass[:, x0].fix(
@@ -148,7 +148,7 @@ def run_mhe(
 
     cv = m_estimator.fs.pipeline.control_volume
     measured_variables = [
-        pyo.Reference(cv.flow_mass[:, x]) for x in space.ordered_data()[:-1]
+        pyo.Reference(cv.flow_mass[:, x]) for x in list(space)[:-1]
     ]
     measurement_info = construct_measurement_variables_constraints(
         m_estimator.fs.sample_points,
@@ -169,7 +169,7 @@ def run_mhe(
     ]
     flatten_material_balance = [
         pyo.Reference(cv.material_balances[:,x,"Vap","natural_gas"])
-        for x in space if x != space.last()
+        for x in list(space)[:-1]
     ]
     model_constraints_to_be_disturbed = \
         flatten_momentum_balance + flatten_material_balance
@@ -264,7 +264,7 @@ def run_mhe(
         flatten_measurements,
     )
 
-    # set up a model linker to send measurements to estimator to initialize
+    # Set up a model linker to send measurements to estimator to initialize
     # measured variables
     #
     estimate_linker = DynamicVarLinker(
@@ -333,7 +333,7 @@ def run_mhe(
         # Initialize measured variables within the last sample period to
         # current measurements
         #
-        last_sample_period = list(m_estimator.fs.time)[-4:]
+        last_sample_period = list(m_estimator.fs.time)[-ntfe_per_sample:]
         # for index, var in enumerate(measured_variables):
         #     for tp in last_sampel_period:
         #         var[tp].set_value(blo.measurement_variables[index, estimator_tf])

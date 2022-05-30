@@ -80,6 +80,9 @@ def run_mhe(
     # Load data into dynamic model
     #
     use_linker = False
+    # Doesn't work if I change use_linker to True.
+    # TODO: fix this. If I construct the DynamicVarLinker,
+    # the code runs but one of the solves doesn't converge...
     if use_linker:
         # If I want to use DynamicVarLinker:
         # (E.g. if we didn't know that names in the steady model would
@@ -111,6 +114,14 @@ def run_mhe(
     #
     # Initialize data structure for simulation data
     #
+    # What is the simulation? The plant trajectories as a pre-determined
+    # sequence of inputs is applied?
+    # We also will store data from the estimator?
+    # Do data from the simulation and estimator exist on the same "real"
+    # time points?
+    # The simulation always runs one sample ahead of the estimator.
+    # So maybe we run the simulation, then apply the estimator so that they
+    # determine/estimate states at the same time points.
     sim_data = m_plant_helper.get_data_at_time([t0])
 
     #
@@ -126,11 +137,15 @@ def run_mhe(
     # Fix inputs at all time points
     m_estimator.fs.pipeline.control_volume.pressure[:, x0].fix()
     m_estimator.fs.pipeline.control_volume.flow_mass[:, xf].fix()
+    # Estimator should have control inputs fixed. These should be
+    # supplied by some external source, and rotated every sample period.
 
     # Make helper object w.r.t. time
     m_estimator_time_helper = DynamicModelHelper(
         m_estimator, m_estimator.fs.time
     )
+    # Estimator helper use this to load and extract data.
+    # Data will be loaded from a previous simulation, plus noise.
 
     #
     # Make sample-point set for measurements and model disturbances
@@ -139,6 +154,9 @@ def run_mhe(
         t0 + sample_period*i for i in range(samples_per_estimator+1)
     ]
     m_estimator.fs.sample_points = ContinuousSet(initialize=sample_points)
+    # Does this need to be a ContinuousSet?
+    # Note that the estimator time set is defined in the positive direction.
+    # (Might be interesting to consider defining it in [-H, 0])
 
     #
     # Construct components for measurements and measurement errors
@@ -147,24 +165,43 @@ def run_mhe(
     esti_blo = m_estimator.estimation_block
 
     cv = m_estimator.fs.pipeline.control_volume
+    # Flow rate at all spatial discretization points is chosen
+    # as the measurements. Not a "sufficient subset" of "dynamic degrees
+    # of freedom."
+    # These are "the variables that get measured"
     measured_variables = [
         pyo.Reference(cv.flow_mass[:, x]) for x in list(space)[:-1]
     ]
+    #
     measurement_info = construct_measurement_variables_constraints(
         m_estimator.fs.sample_points,
         measured_variables,
     )
+    # These are a set of integer indices for measurement variables?
     esti_blo.measurement_set = measurement_info[0]
+    # These are... the variables passed as arguments? Or "duplicated
+    # variables" corresponding to them?
     esti_blo.measurement_variables = measurement_info[1]
-    # Measurement variables should be fixed all the time
+    # Measurement variables should be fixed all the time.
+    # These are fixed, rather than the "measured_variables" above.
+    # Those above variables are the "estimates" (that happen to be measured)
+    # rather than the "measurements" which are fixed.
     esti_blo.measurement_variables.fix()
+    # Some delta for estimate-variable mismatch that we will minimize
     esti_blo.measurement_error_variables = measurement_info[2]
+    # x + delta = err, I assume
+    # No. delta ~is~ the error
+    # est + delta = meas
     esti_blo.measurement_constraints = measurement_info[3]
 
     #
     # Construct disturbed model constraints
     #
+    # I assume we are going to deactivate these constraints, then
+    # construct new constraints with error variables added to the
+    # model.
     flatten_momentum_balance = [
+        # Why do we keep this equation at space.first()?
         pyo.Reference(cv.momentum_balance[:,x]) for x in space
     ]
     flatten_material_balance = [
@@ -174,6 +211,13 @@ def run_mhe(
     model_constraints_to_be_disturbed = \
         flatten_momentum_balance + flatten_material_balance
 
+    # Returns new constraints, new variables, and a set that indexes
+    # them. This seems reasonable. Disturbance constraints are
+    # indexed by time, but variables are only indexed by sample points?
+    # I think this makes sense. Is this the best way to parameterize
+    # this function?
+    # - construct_disturbance_constraints(time, constraints, disturbance_vars)
+    #   where disturbance vars are indexed by time (somehow)?
     model_disturbance_info = construct_disturbed_model_constraints(
         m_estimator.fs.time,
         m_estimator.fs.sample_points,
@@ -183,6 +227,8 @@ def run_mhe(
     esti_blo.disturbance_variables = model_disturbance_info[1]
     esti_blo.disturbed_constraints = model_disturbance_info[2]
 
+    # What is going on here? Activates disturbance constraints...
+    # only if the corresponding constraints are active in the model?
     activate_disturbed_constraints_based_on_original_constraints(
         m_estimator.fs.time,
         m_estimator.fs.sample_points,
@@ -192,6 +238,9 @@ def run_mhe(
     )
 
     # Make helper object w.r.t. sample points
+    #
+    # What are we doing here? This identifies variables indexed
+    # by sample_points? Then we extract and pass around data?
     m_estimator_spt_helper = DynamicModelHelper(
         m_estimator, m_estimator.fs.sample_points
     )
@@ -204,6 +253,11 @@ def run_mhe(
         pyo.ComponentUID(var.referent): 1.0
         for var in measured_variables
     }
+    # Here we are getting the tracking cost for measured variables.
+    # Measurements are only defined at sample points, so we can only
+    # penalize them at sample points. Why is time necessary?
+    # Is the returned object indexed by sample_points? Yes.
+    # We should be able to do this with existing get_tracking_cost function...
     m_estimator.measurement_error_cost = get_error_disturbance_cost(
         m_estimator.fs.time,
         m_estimator.fs.sample_points,
@@ -213,11 +267,15 @@ def run_mhe(
     )
 
     model_disturbance_weights = {
+        # This is reminding me that I need a data structure for
+        # constant data.
         **{pyo.ComponentUID(con.referent): 10.0
            for con in flatten_momentum_balance},
         **{pyo.ComponentUID(con.referent): 20.0
            for con in flatten_material_balance},
     }
+    # Same comment as above, shouldn't we be able to do this with
+    # existing functions?
     m_estimator.model_disturbance_cost = get_error_disturbance_cost(
         m_estimator.fs.time,
         m_estimator.fs.sample_points,
@@ -227,6 +285,7 @@ def run_mhe(
     )
 
     m_estimator.squred_error_disturbance_objective = pyo.Objective(
+        # Should we skip these cost functions at t=0?
         expr=(sum(m_estimator.measurement_error_cost.values()) +
               sum(m_estimator.model_disturbance_cost.values())
               )
@@ -236,6 +295,7 @@ def run_mhe(
     # Initialize dynamic model to initial steady state
     #
     # TODO: load a time-series measurements & controls as initialization
+    # This looks fine.
     m_estimator_time_helper.load_scalar_data(scalar_data)
     m_estimator_time_helper.load_data_at_time(initial_data, m_estimator.fs.time)
 
@@ -252,24 +312,34 @@ def run_mhe(
     # Set up a model linker to send measurements to estimator to update
     # measurement variables
     #
+    # I think a find_component to set up the lists of associated variables
+    # is reasonable.
     measured_variables_in_plant = [m_plant.find_component(var.referent)
                                    for var in measured_variables
     ]
+    # "measurement_variables" (as opposed to "measured_variables")
+    # are fixed, right? Yes, they are.
     flatten_measurements = [
         pyo.Reference(esti_blo.measurement_variables[index, :])
         for index in esti_blo.measurement_set
     ]
+    # This sends measurements from plant to estimator.
     measurement_linker = DynamicVarLinker(
-        measured_variables_in_plant,
-        flatten_measurements,
+        measured_variables_in_plant, # Indexed by plant's time
+        flatten_measurements,        # Indexed by sample sample points
     )
 
     # Set up a model linker to send measurements to estimator to initialize
     # measured variables
     #
+    # Sends measurement values from plant to the actual variables in the
+    # estimator. Just for initialization? Should we not already have a
+    # way to associate the "measurement vars" and "measured vars"?
+    # This DynamicVarLinker seems unnecessary to me. TODO: Try to refactor
+    # it out.
     estimate_linker = DynamicVarLinker(
-        measured_variables_in_plant,
-        measured_variables,
+        measured_variables_in_plant, # Indexed by plant's time
+        measured_variables,          # Indexed by controller's time
     )
 
     #
@@ -280,6 +350,14 @@ def run_mhe(
     with open(filepath, "r") as fr:
         control_data = json.load(fr)
 
+    import pdb; pdb.set_trace()
+
+    # control_data seems to be a list?
+    # TODO: Can we make it a serialized TimeSeriesData?
+    # control_data is actually a {cuid: [value-list]} dict.
+
+    # This seems incorrect. Why are we using len(control_data)?
+    # This is the number of control inputs.
     control_input_time = [i*sample_period for i in range(len(control_data))]
     control_inputs = TimeSeriesData(
         control_data, control_input_time, time_set=None

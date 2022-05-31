@@ -10,6 +10,36 @@
 \begin{document}
 \maketitle
 
+\section{May 31, 2022}
+
+Have looked through KH's MHE example. Looks pretty good.
+My main goal now is to make sure my data structures hold up in this
+example.
+\begin{itemize}
+  \item Use them whenever possible in KH's example.
+  \item Add functionality that may be useful (e.g. ScalarData class)
+    and use it in KH's example (as well as my own)
+\end{itemize}
+I should not prioritize modifying KH's API for MHE components.
+This should be left as comments on KH's PR that he can address as
+he sees fit.
+
+\medskip
+
+So how do I go about testing and improving my data structures for KH's example?
+\begin{itemize}
+  \item \texttt{mhe-patch} branch where I modify KH's original branch to use
+    my data structures as much as possible
+  \item This will involve refactoring his test to run faster, so I can actually
+    test my modifications.
+  \item Make all modifications I can without modifying the data structures.
+  \item Make a branch, based on main, to add to data structures.
+  \item Add ScalarData class, test in NMPC example.
+  \item Test in MHE example (in its own branch, probably)
+  \item If satisfied, merge into main, then merge main into KH's MHE
+    branch and my patch. Open a PR to KH's branch to use my patch.
+\end{itemize}
+
 \section{May 30, 2022}
 
 Reviewing KH's code.

@@ -24,6 +24,21 @@ Script to run an MHE simulation with a single natural gas pipeline model.
 """
 
 
+def get_control_inputs(sample_period=2.0):
+    n_samples = 2
+    control_input_time = [i*sample_period for i in range(n_samples)]
+    control_input_data = {
+        'fs.pipeline.control_volume.flow_mass[*,1.0]': [
+            553003.1393240632, 535472.4292275416
+        ],
+        'fs.pipeline.control_volume.pressure[*,0]': [
+            58.905880452751845, 58.92036532907178
+        ],
+    }
+    series = TimeSeriesData(control_input_data, control_input_time)
+    return series
+
+
 def run_mhe(
         simulation_horizon=20.0,
         estimator_horizon=20.0,
@@ -275,15 +290,7 @@ def run_mhe(
     #
     # Load control input data for simulation
     #
-    directory = os.path.abspath(os.path.dirname(__file__))
-    filepath = os.path.join(directory, "control_input_data.json")
-    with open(filepath, "r") as fr:
-        control_data = json.load(fr)
-
-    control_input_time = [i*sample_period for i in range(len(control_data))]
-    control_inputs = TimeSeriesData(
-        control_data, control_input_time, time_set=None
-    )
+    control_inputs = get_control_inputs()
 
     for i in range(n_cycles):
         # time.first() in the model corresponds to sim_t0 in "simulation time"

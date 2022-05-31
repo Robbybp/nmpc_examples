@@ -10,6 +10,31 @@
 \begin{document}
 \maketitle
 
+\section{May 31, 2022}
+
+Modifying KH's branch to make sure it makes use of my existing tools whenever
+possible.
+\begin{itemize}
+  \item The test runs quickly. I can now make changes and run it to make sure I
+    didn't horribly break anything.
+  \item Remove json file for control inputs. -- {\bf Done.}
+  \item Make sure code works with both model linker and model helper for data
+    transfer between models -- {\bf Done.} The problem was that I wasn't
+    initializing the scalar variables.
+  \item Now I need to replace \texttt{get\_error\_disturbance\_cost} with
+    the time-varying setpoint tracking cost.
+\end{itemize}
+
+Recall that this all falls into the category of making sure my data structures
+hold up and can be used in KH's example. I need to make sure they can be used
+everywhere I think they can be used.
+These modifications would be sufficient for a PR into KH's branch. Then another
+PR could incorporate whatever new functionality I decide to add.
+Functionality to add:
+\begin{itemize}
+  \item Data structure for scalar data for time-indexed variable.
+\end{itemize}
+
 \section{Mar 17, 2022}
 
 Where did the code in the \texttt{simple\_pipeline} directory go?

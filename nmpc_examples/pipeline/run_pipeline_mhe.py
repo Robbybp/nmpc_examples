@@ -224,6 +224,9 @@ def run_mhe(
         model_constraints_to_be_disturbed,
     )
     esti_blo.disturbance_set = model_disturbance_info[0]
+    # Should this be an indexed variable, or a list of variables
+    # indexed only by time? The latter makes it easier for these to have
+    # human-readable names.
     esti_blo.disturbance_variables = model_disturbance_info[1]
     esti_blo.disturbed_constraints = model_disturbance_info[2]
 
@@ -326,7 +329,7 @@ def run_mhe(
     # This sends measurements from plant to estimator.
     measurement_linker = DynamicVarLinker(
         measured_variables_in_plant, # Indexed by plant's time
-        flatten_measurements,        # Indexed by sample sample points
+        flatten_measurements,        # Indexed by estimator sample points
     )
 
     # Set up a model linker to send measurements to estimator to initialize
@@ -346,11 +349,10 @@ def run_mhe(
     # Load control input data for simulation
     #
     directory = os.path.abspath(os.path.dirname(__file__))
+    # Where does this file come from?
     filepath = os.path.join(directory, "control_input_data.json")
     with open(filepath, "r") as fr:
         control_data = json.load(fr)
-
-    import pdb; pdb.set_trace()
 
     # control_data seems to be a list?
     # TODO: Can we make it a serialized TimeSeriesData?
@@ -372,6 +374,10 @@ def run_mhe(
         #
         # Load inputs into plant
         #
+        # Why do we get control inputs at sim_t0? Doesn't this correspond
+        # to time.first() in the plant? Seems a little odd that we get
+        # the input at sim_t0, then load it everywhere ~except~ the initial
+        # point.
         current_control = control_inputs.get_data_at_time(time=sim_t0)
         non_initial_plant_time = list(m_plant.fs.time)[1:]
         m_plant_helper.load_data_at_time(
@@ -387,6 +393,14 @@ def run_mhe(
         # Initial conditions have already been accounted for.
         # Note that this is only correct because we're using an implicit
         # time discretization.
+        #
+        # If we were using an explicit discretization, the initial conditions
+        # would need to use the updated control inputs. Therefore, they would
+        # be different after the solve from the final values of the previous
+        # sample, and should be overridden.
+        # For an explicit discretization, we should extend with
+        # list(m_plant.fs.time)[:-1]
+        #
         non_initial_time = list(m_plant.fs.time)[1:]
         model_data = m_plant_helper.get_data_at_time(non_initial_time)
 
@@ -405,13 +419,21 @@ def run_mhe(
         #
         plant_tf = m_plant.fs.time.last()
         estimator_tf = m_estimator.fs.time.last()
+        # This loads measurements from the plant into what are essentially
+        # mutable parameters in the controller.
         measurement_linker.transfer(plant_tf, estimator_tf)
 
         #
         # Initialize measured variables within the last sample period to
         # current measurements
         #
+        # Here we are initializing the state variables that happen to be
+        # measurable. And we are initializing them from the same state variables
+        # in the plant.
         last_sample_period = list(m_estimator.fs.time)[-ntfe_per_sample:]
+        # So yes, we could do this without the linker object.
+        # And presumably we could update using the newly updated measurement
+        # variables. The linker syntax is quite convenient, however.
         # for index, var in enumerate(measured_variables):
         #     for tp in last_sampel_period:
         #         var[tp].set_value(blo.measurement_variables[index, estimator_tf])
@@ -422,23 +444,45 @@ def run_mhe(
             current_control, last_sample_period
         )
 
+        # Degrees of freedom in the estimator should be fine. Inputs fixed,
+        # states unfixed everywhere.
         res = ipopt.solve(m_estimator, tee=True)
         pyo.assert_optimal_termination(res)
 
         #
         # Extract estimate data from estimator
         #
+        # Extract the new estimates (at tf) from the estimator. Any reason we
+        # don't extract all the estimates in the last sample? Because we only
+        # penalize the estimate-measurement deviation at the sample points?
+        #
         estimator_data = m_estimator_time_helper.get_data_at_time([estimator_tf])
         # Shift time points from "estimator time" to "simulation time"
+        #
+        # We want these estimates to exist at time sim_tf. It's a little
+        # annoying that we have to shift by this difference. It would be nicer
+        # if these values existed at t0... Then we would have to shift by t0,
+        # but this is often zero, which is nice. NOTE: I think in my NMPC
+        # simulation, I assume that t0 in the controller is zero. I probably
+        # need to take a difference like this in the controller as well.
+        #
         estimator_data.shift_time_points(sim_tf-estimator_tf)
 
         #
         # Extend data structure of estimates
         #
+        # estimate_data vs. estimator_data might be a little confusing.
+        # Maybe something like computed_estimates for the "real-time"
+        # data structure and estimator_data for the single-model data
+        # structure.
+        #
         estimate_data.concatenate(estimator_data)
 
         #
         # Re-initialize estimator model
+        #
+        # Shift time and sample-point indexed variables by one sample
+        # period.
         #
         m_estimator_time_helper.shift_values_by_time(sample_period)
         m_estimator_spt_helper.shift_values_by_time(sample_period)
@@ -446,6 +490,8 @@ def run_mhe(
         #
         # Re-initialize model to final values.
         # This sets new initial conditions, including inputs.
+        #
+        # We could also shift_values_by_time, but this is more explicit.
         #
         m_plant_helper.copy_values_at_time(source_time=plant_tf)
 

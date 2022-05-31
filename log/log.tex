@@ -30,8 +30,12 @@ So how do I go about testing and improving my data structures for KH's example?
 \begin{itemize}
   \item \texttt{mhe-patch} branch where I modify KH's original branch to use
     my data structures as much as possible
-  \item This will involve refactoring his test to run faster, so I can actually
-    test my modifications.
+    \begin{itemize}
+      \item This will involve refactoring his test to run faster, so I can actually
+        test my modifications.
+      \item This will also require a function to create KH's control inputs,
+        instead of using the json file.
+    \end{itemize}
   \item Make all modifications I can without modifying the data structures.
   \item Make a branch, based on main, to add to data structures.
   \item Add ScalarData class, test in NMPC example.

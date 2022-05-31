@@ -244,6 +244,14 @@ def get_error_disturbance_cost(
     errors or disturbances.
 
     """
+    # In the current formulation, we would like a constant setpoint of zero for
+    # the error variables. We could imagine this as a time-varying setpoint
+    # for the measurable variables. The former is easier, however.
+    # How would I like to parameterize this function?
+    # (variables, time (sample points), setpoint, weights)
+    # Literally should just call the existing function.
+    # TODO: Refactor this function so it does that.
+    # Need time set to get the time-indexed CUID. Will this complicate things?
     component_cuids = [
         get_time_indexed_cuid(comp, sets=(time,))
         for comp in components

@@ -36,6 +36,8 @@ def get_control_inputs(sample_period=2.0):
         ],
     }
     series = TimeSeriesData(control_input_data, control_input_time)
+    # Note that if we want a json representation of this data, we
+    # can always call json.dump(fp, series.to_serializable()).
     return series
 
 

@@ -9,6 +9,12 @@ class TestPipelineMHE(unittest.TestCase):
         simulation_data, estimate_data = run_mhe(
             simulation_horizon=4.0,
             sample_period=2.0,
+            # NOTE: When I reduce the estimator horizon to 4.0, the test
+            # runs much faster, but the results here don't change.
+            # Is this what I expect?
+            # It seems plausible, as the estimated values are the same
+            # as those simulated...
+            estimator_horizon=4.0,
         )
 
         # These values were not reproduced with another model, just taken

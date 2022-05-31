@@ -97,6 +97,11 @@ def run_mhe(
     # Load data into dynamic model
     #
     use_linker = False
+    # Need to create the plant helper regardless of whether I use it for
+    # this particular data transfer, as it is used to initialize and extend
+    # the simulation data structures.
+    m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
+    m_plant_helper.load_scalar_data(scalar_data)
     if use_linker:
         # If I want to use DynamicVarLinker:
         # (E.g. if we didn't know that names in the steady model would
@@ -117,8 +122,8 @@ def run_mhe(
 
     else:
         # If I want to use DynamicModelHelper:
-        m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
-        m_plant_helper.load_scalar_data(scalar_data)
+        #m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
+        #m_plant_helper.load_scalar_data(scalar_data)
         m_plant_helper.load_data_at_time(initial_data)
 
     # Solve as a sanity check -- should be square with zero infeasibility

@@ -252,6 +252,8 @@ def get_error_disturbance_cost(
     # Literally should just call the existing function.
     # TODO: Refactor this function so it does that.
     # Need time set to get the time-indexed CUID. Will this complicate things?
+
+    # time should not be strictly necessary here (we never expect vardata, do we?)
     component_cuids = [
         get_time_indexed_cuid(comp, sets=(time,))
         for comp in components
@@ -266,12 +268,62 @@ def get_error_disturbance_cost(
                 "variable\n%s with ComponentUID %s" % (components[i].name, cuid)
             )
 
+    # We are assuming that model variables and error variables are in the
+    # same order.
     def error_disturbance_rule(m, spt):
         return sum(
             weight_data[cuid] * error_dist_var[index, spt]**2
             for index, cuid in enumerate(component_cuids)
         )
-    error_disturbance_cost = Expression(
-        sample_points, rule=error_disturbance_rule
+    #error_disturbance_cost = Expression(
+    #    sample_points, rule=error_disturbance_rule
+    #)
+    from nmpc_examples.nmpc.cost_expressions import (
+        get_tracking_cost_from_constant_setpoint,
+    )
+    from pyomo.core.base.reference import Reference
+    error_var_refs = [
+        # This is a downside of having error_dist_var be two-dimensional.
+        # It is not easy to get the number of vars it refers to.
+        # Note that we are using len(components) here...
+        Reference(error_dist_var[idx, :]) for idx in range(len(components))
+    ]
+    error_var_cuids = [get_time_indexed_cuid(var) for var in error_var_refs]
+    setpoint_data = {cuid: 0.0 for cuid in error_var_cuids}
+    #weight_data = {cuid: 1.0 for cuid in error_var_cuids}
+    # Need to get weight_data from the function argument.
+    # Map component cuid -> error var cuid somehow...
+    # Component cuid -> component index (= error var index) -> error var cuid
+    cuid_index_map = {cuid: idx for idx, cuid in enumerate(component_cuids)}
+    weight_data = {
+        error_var_cuids[cuid_index_map[cuid]]: val
+        for cuid, val in weight_data.items()
+    }
+    error_disturbance_cost = get_tracking_cost_from_constant_setpoint(
+        error_var_refs,
+        sample_points,
+        setpoint_data,
+        weight_data=weight_data,
     )
     return error_disturbance_cost
+
+
+def get_error_cost(variables, time, weight_data=None):
+    """
+    """
+    # I know that these variables are indexed by time (aren't VarData), so I
+    # don't need to send the time set to get_time_indexed_cuid
+    cuids = [get_time_indexed_cuid(var) for var in variables]
+    if weight_data is None:
+        weight_data = {cuid: 1.0 for cuid in cuids}
+    setpoint_data = {cuid: 0.0 for cuid in cuids}
+    from nmpc_examples.nmpc.cost_expressions import (
+        get_tracking_cost_from_constant_setpoint,
+    )
+    error_cost = get_tracking_cost_from_constant_setpoint(
+        variables,
+        time,
+        setpoint_data,
+        weight_data=weight_data,
+    )
+    return error_cost

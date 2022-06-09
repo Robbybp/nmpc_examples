@@ -8,86 +8,9 @@ from pyomo.dae.flatten import get_slice_for_set
 from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
     find_nearest_index,
 )
-
-
-def get_time_indexed_cuid(var, sets=None, dereference=None):
-    """
-    Attempts to convert the provided "var" object into a CUID with
-    with wildcards.
-
-    Arguments
-    ---------
-    var:
-        Object to process
-    time: Set
-        Set to use if slicing a vardata object
-    dereference: None or int
-        Number of times we may access referent attribute to recover a
-        "base component" from a reference.
-
-    """
-    # TODO: Does this function have a good name?
-    # Should this function be generalized beyond a single indexing set?
-    if isinstance(var, ComponentUID):
-        return var
-    elif isinstance(var, (str, IndexedComponent_slice)):
-        return ComponentUID(var)
-    # At this point we are assuming var is a Pyomo Var or VarData object.
-
-    # Is allowing dereference to be an integer worth the confusion it might
-    # add?
-    if dereference is None:
-        # Does this branch make sense? If given an unattached component,
-        # we dereference, otherwise we don't dereference.
-        remaining_dereferences = int(var.parent_block() is None)
-    else:
-        remaining_dereferences = int(dereference)
-    if var.is_indexed():
-        if var.is_reference() and remaining_dereferences:
-            remaining_dereferences -= 1
-            referent = var.referent
-            if isinstance(referent, IndexedComponent_slice):
-                return ComponentUID(referent)
-            else:
-                # If dereference is None, we propagate None, dereferencing
-                # until we either reach a component attached to a block
-                # or reach a non-reference component.
-                dereference = dereference if dereference is None else\
-                        remaining_dereferences
-                # NOTE: Calling this function recursively
-                return get_time_indexed_cuid(
-                    referent, time, dereference=dereference
-                )
-        else:
-            # Assume that var is indexed only by time
-            # TODO: Should we call slice_component_along_sets here as well?
-            # To cover the case of b[t0].var, where var is indexed
-            # by a set we care about, and we also care about time...
-            # But then maybe we should slice only the sets we care about...
-            # Don't want to do anything with these sets unless we're
-            # presented with a vardata...
-            #
-            # Should we call flatten.slice_component_along_sets? Then we
-            # might need to return/yield multiple components here...
-            # I like making this a "simple" function. The caller can call
-            # slice_component_along_set on their input data if they expect
-            # to have components indexed by multiple sets.
-            #
-            # TODO: Assert that we're only indexed by the specified set(s)?
-            # (If these sets are provided, of course...)
-            index = tuple(
-                get_slice_for_set(s) for s in var.index_set().subsets()
-            )
-            return ComponentUID(var[index])
-    else:
-        if sets is None:
-            raise ValueError(
-                "A ComponentData %s was provided but no set. We need to know\n"
-                "what set this component should be indexed by."
-                % var.name
-            )
-        slice_ = slice_component_along_sets(var, sets)
-        return ComponentUID(slice_)
+from nmpc_examples.nmpc.dynamic_data.get_cuid import (
+    get_time_indexed_cuid,
+)
 
 
 TimeSeriesTuple = namedtuple("TimeSeriesTuple", ["data", "time"])

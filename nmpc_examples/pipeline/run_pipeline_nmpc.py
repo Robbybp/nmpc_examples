@@ -18,6 +18,7 @@ from nmpc_examples.nmpc.input_constraints import (
 from nmpc_examples.nmpc.model_linker import DynamicVarLinker
 from nmpc_examples.nmpc.model_helper import DynamicModelHelper
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 
 import matplotlib.pyplot as plt
 
@@ -166,6 +167,13 @@ def run_nmpc(
         "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
         "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
     }
+    weight_data = ScalarData({
+        m_controller.fs.pipeline.control_volume.flow_mass[:, x0]: 1e-10,
+        m_controller.fs.pipeline.control_volume.flow_mass[:, xf]: 1e-10,
+        m_controller.fs.pipeline.control_volume.pressure[:, x0]: 1e-2,
+        m_controller.fs.pipeline.control_volume.pressure[:, xf]: 1e-2,
+    })
+    import pdb; pdb.set_trace()
     weight_data = {
         # get_tracking_cost_expression expects CUIDs as keys now
         pyo.ComponentUID(name): val for name, val in weight_data.items()

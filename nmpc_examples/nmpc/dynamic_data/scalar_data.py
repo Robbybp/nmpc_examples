@@ -34,7 +34,6 @@ class ScalarData(object):
             for key, val in data.items()
         }
 
-
     def get_data(self):
         """
         Return a dictionary mapping CUIDs to values
@@ -64,7 +63,7 @@ class ScalarData(object):
         for var in variables:        
             cuid = get_time_indexed_cuid(var, (self._orig_time_set,))
             data[cuid] = self._data[cuid]
-        return TimeSeriesData(
+        return ScalarData(
             data,
             time_set=self._orig_time_set,
         )

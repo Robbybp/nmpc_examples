@@ -32,8 +32,11 @@ After adding a data structure for scalar data, I need to update
 the following functions to return/accept it:
 \begin{itemize}
   \item \texttt{get\_tracking\_cost\_from\_constant\_setpoint}
+    -- Uses ScalarData. Could be made more simple by processing keys
+    in ScalarData rather than the function itself
   \item \texttt{get\_data\_at\_time}
   \item \texttt{load\_data\_at\_time}
+    -- Both of these have been done as well.
 \end{itemize}
 
 \section{Mar 17, 2022}

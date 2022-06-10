@@ -161,27 +161,28 @@ def run_nmpc(
         pyo.Reference(cv.flow_mass[:, x0]),
         pyo.Reference(cv.flow_mass[:, xf]),
     ]
+    #weight_data = {
+    #    "fs.pipeline.control_volume.flow_mass[*,%s]" % x0: 1e-10,
+    #    "fs.pipeline.control_volume.flow_mass[*,%s]" % xf: 1e-10,
+    #    "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
+    #    "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
+    #}
     weight_data = {
-        "fs.pipeline.control_volume.flow_mass[*,%s]" % x0: 1e-10,
-        "fs.pipeline.control_volume.flow_mass[*,%s]" % xf: 1e-10,
-        "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
-        "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
-    }
-    weight_data = ScalarData({
         m_controller.fs.pipeline.control_volume.flow_mass[:, x0]: 1e-10,
         m_controller.fs.pipeline.control_volume.flow_mass[:, xf]: 1e-10,
         m_controller.fs.pipeline.control_volume.pressure[:, x0]: 1e-2,
         m_controller.fs.pipeline.control_volume.pressure[:, xf]: 1e-2,
-    })
-    import pdb; pdb.set_trace()
-    weight_data = {
-        # get_tracking_cost_expression expects CUIDs as keys now
-        pyo.ComponentUID(name): val for name, val in weight_data.items()
     }
+    #weight_data = {
+    #    # get_tracking_cost_expression expects CUIDs as keys now
+    #    pyo.ComponentUID(name): val for name, val in weight_data.items()
+    #}
     m_controller.tracking_cost = get_tracking_cost_from_constant_setpoint(
         tracking_variables,
         m_controller.fs.time,
+        # setpoint_data will stay a dict for now
         setpoint_data,
+        # weight_data should become a ScalarData object
         weight_data=weight_data,
     )
     m_controller.tracking_objective = pyo.Objective(

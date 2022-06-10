@@ -14,6 +14,7 @@ from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
 from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 from nmpc_examples.nmpc.dynamic_data.interval_data import (
     time_series_from_interval_data,
 )
@@ -52,12 +53,26 @@ def get_tracking_cost_from_constant_setpoint(
         get_time_indexed_cuid(var, sets=(time,))
         for var in variables
     ]
-    # TODO: Weight data (and setpoint data) are user-provided and don't
-    # necessarily have CUIDs as keys. Should I processes the keys here
-    # with get_time_indexed_cuid?
     if weight_data is None:
-        #weight_data = {name: 1.0 for name in variable_names}
         weight_data = {cuid: 1.0 for cuid in cuids}
+    elif isinstance(weight_data, ScalarData):
+        weight_data = weight_data.get_data()
+    else:
+        weight_data = ScalarData(weight_data, time_set=time).get_data()
+    # Note that if we used ScalarData everywhere, we wouldn't have to
+    # process the incoming variables with get_time_indexed_cuid.
+    # We would process them on lookup, which would be slightly more work,
+    # but this function would be nicer. ScalarData would have to implement
+    # __contains__ in that case.
+
+    if isinstance(setpoint_data, ScalarData):
+        setpoint_data = setpoint_data.get_data()
+    else:
+        setpoint_data = ScalarData(setpoint_data, time_set=time).get_data()
+
+    # Note that at this point both weight_data and setpoint_data are dicts
+    # mapping CUIDs to values.
+
     for i, cuid in enumerate(cuids):
         if cuid not in setpoint_data:
             raise KeyError(
@@ -165,4 +180,3 @@ def get_tracking_cost_from_time_varying_setpoint(
         return sum(cost[t] for cost in tracking_costs)
     tracking_cost = Expression(time, rule=tracking_rule)
     return tracking_cost
-

@@ -11,6 +11,7 @@ from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
 from nmpc_examples.nmpc.dynamic_data.get_cuid import (
     get_time_indexed_cuid,
 )
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 
 
 TimeSeriesTuple = namedtuple("TimeSeriesTuple", ["data", "time"])
@@ -86,9 +87,9 @@ class TimeSeriesData(object):
             return TimeSeriesData(data, time_list, time_set=time_set)
         except TypeError:
             # indices is a scalar
-            return {
+            return ScalarData({
                 cuid: values[indices] for cuid, values in self._data.items()
-            }
+            })
 
     # TODO: Should there be a get_scalar_data_at_time method that replaces
     # the functionality of get_data_at_time with a scalar time point?

@@ -36,13 +36,17 @@ class TimeSeriesData(object):
         # a time-indexed CUID. We need to know what set to slice.
         self._orig_time_set = time_set
         self._time = list(time)
+        # When looking up a value at a particular time point, we will use
+        # this map to try and the index of the time point. If this lookup
+        # fails, we will use binary search-within-tolerance to attempt to
+        # find a point that is close enough.
         self._time_idx_map = {t: idx for idx, t in enumerate(time)}
 
         if time is not None:
             # First make sure provided lists of variable data have the
             # same lengths as the provided time list.
             for key, data_list in data.items():
-                # What if time is a number. Do I ever want to support that
+                # What if time is a number? Do I ever want to support that
                 # here?
                 if len(data_list) != len(time):
                     raise ValueError(
@@ -69,6 +73,13 @@ class TimeSeriesData(object):
         Return a dictionary mapping CUIDs to values
         """
         return self._data
+
+    def get_data_from_key(self, key):
+        """
+        Returns the list of values corresponding to the provided key.
+        """
+        cuid = get_time_indexed_cuid(key, (self._orig_time_set,))
+        return self._data[cuid]
 
     def get_data_at_time_indices(self, indices):
         """

@@ -10,6 +10,51 @@
 \begin{document}
 \maketitle
 
+\section{July 25, 2022}
+Of the todo's from June 9, what have I done and what do I still need to do?
+
+\subsection{Individual variable data}
+Did not add a method to get the data (number or list) for a particular
+variable. Have added this now -- \texttt{get\_data\_from\_key}
+in \texttt{ScalarData} and \texttt{SeriesData}.
+
+Don't know exactly where I will use this\ldots
+
+\subsection{Unified \texttt{load\_data} method}
+In \texttt{DynamicModelHelper} class. This can wait until I have tests,
+so I can make sure I don't break anything.
+
+\subsection{Constant setpoint tracking cost}
+Could be made simpler, but this would defer processing slices to
+get CUIDs to inside the rule, which I don't like.
+
+Narrower goal: refactor to make code more clear.
+This will likely require a contains method for ScalarData
+(and therefore a contains method for SeriesData).
+I'm leaning towards \texttt{contains\_key}
+and \texttt{contains\_time} methods, rather than
+\texttt{\_\_contains\_\_}.
+
+\medskip
+
+{\bf Aside:} Can I use a model keyword then find the variables
+with find component?
+
+\subsection{Model helper}
+API to get the DAE vars or their slices/CUIDs?
+
+\subsection{Testing this functionality}
+My main goals should be
+\begin{enumerate}
+  \item Make sure I don't break anything
+  \item Have some examples of these data structures ready for when I want
+    others to use them.
+\end{enumerate}
+
+\begin{itemize}
+  \item NMPC and open-loop have been tested.
+\end{itemize}
+
 \section{June 9, 2022}
 Additional functionality for these data structures before they are
 ready for (tests and) a PR.

@@ -119,6 +119,12 @@ class DynamicModelHelper(object):
                 })
             return ScalarData(data)
 
+    # TODO: A unified load_data method would be nice:
+    # - Branch on type (ScalarData and SeriesData handled)
+    # - Branch on key (find_component -> is_indexed)
+    # - Branch on iterable value. Iterable => load at all time
+    # This is something to do once I have tests.
+
     def load_scalar_data(self, data):
         """
         Expects a dict mapping CUIDs (or strings) to values. Keys can

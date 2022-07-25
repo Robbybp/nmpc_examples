@@ -155,34 +155,28 @@ def run_nmpc(
     # Construct tracking objective
     #
     cv = m_controller.fs.pipeline.control_volume
+    # Weakness of current API: We can't accept slices for variables
+    # and process them with find_component, because we don't have the
+    # model. We could imagine a model keyword that, if provided, attempts
+    # to locate the variables with find_component.
+    # This will make the function call confusing, however. Why does "model"
+    # need to be there...
     tracking_variables = [
         pyo.Reference(cv.pressure[:, x0]),
         pyo.Reference(cv.pressure[:, xf]),
         pyo.Reference(cv.flow_mass[:, x0]),
         pyo.Reference(cv.flow_mass[:, xf]),
     ]
-    #weight_data = {
-    #    "fs.pipeline.control_volume.flow_mass[*,%s]" % x0: 1e-10,
-    #    "fs.pipeline.control_volume.flow_mass[*,%s]" % xf: 1e-10,
-    #    "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
-    #    "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
-    #}
     weight_data = {
         m_controller.fs.pipeline.control_volume.flow_mass[:, x0]: 1e-10,
         m_controller.fs.pipeline.control_volume.flow_mass[:, xf]: 1e-10,
         m_controller.fs.pipeline.control_volume.pressure[:, x0]: 1e-2,
         m_controller.fs.pipeline.control_volume.pressure[:, xf]: 1e-2,
     }
-    #weight_data = {
-    #    # get_tracking_cost_expression expects CUIDs as keys now
-    #    pyo.ComponentUID(name): val for name, val in weight_data.items()
-    #}
     m_controller.tracking_cost = get_tracking_cost_from_constant_setpoint(
         tracking_variables,
         m_controller.fs.time,
-        # setpoint_data will stay a dict for now
         setpoint_data,
-        # weight_data should become a ScalarData object
         weight_data=weight_data,
     )
     m_controller.tracking_objective = pyo.Objective(
@@ -216,27 +210,21 @@ def run_nmpc(
     #
     # Initialize data structure for controller inputs
     #
-    input_names = [
-        # FIXME: This doesn't work:
-        #m_controller.fs.pipeline.control_volume.flow_mass[t0,xf],
-        #m_controller.fs.pipeline.control_volume.pressure[t0,x0],
-        pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,%s]" % xf),
-        pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,%s]" % x0),
+    inputs = [
+        m_controller.fs.pipeline.control_volume.flow_mass[:, xf],
+        m_controller.fs.pipeline.control_volume.pressure[:, x0],
     ]
     controller_data = m_controller_helper.get_data_at_time([t0])
-    applied_inputs = controller_data.extract_variables(input_names)
+    applied_inputs = controller_data.extract_variables(inputs)
 
     #
     # Set up a "model linker" to transfer control inputs to plant
     #
-    # TODO: Should we process keys here to get the variables from
-    # a wide range of inputs? A challenge here is that we need
-    # to actually get the Pyomo variables.
     controller_input_vars = [
-        m_controller.find_component(name) for name in input_names
+        m_controller.find_component(name) for name in inputs
     ]
     plant_input_vars = [
-        m_plant.find_component(name) for name in input_names
+        m_plant.find_component(name) for name in inputs
     ]
     input_linker = DynamicVarLinker(
         controller_input_vars,
@@ -250,8 +238,8 @@ def run_nmpc(
     # even though we only need to send those that are fixed as initial
     # conditions.
     plant_vars_in_controller = [
-        m_controller.find_component(var.referent)
-        for var in m_plant_helper.dae_vars
+        m_controller.find_component(cuid)
+        for cuid in m_plant_helper.dae_var_cuids
     ]
     init_cond_linker = DynamicVarLinker(
         m_plant_helper.dae_vars,
@@ -276,7 +264,7 @@ def run_nmpc(
         #
         controller_data = m_controller_helper.get_data_at_time([ts])
         # Extract only the inputs
-        extracted_inputs = controller_data.extract_variables(input_names)
+        extracted_inputs = controller_data.extract_variables(inputs)
         # Shift time points from "controller time" to "simulation time"
         extracted_inputs.shift_time_points(sim_t0)
 

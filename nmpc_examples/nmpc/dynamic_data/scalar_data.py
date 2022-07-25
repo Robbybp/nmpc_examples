@@ -40,6 +40,13 @@ class ScalarData(object):
         """
         return self._data
 
+    def get_data_from_key(self, key):
+        """
+        Returns the value associated with the given key.
+        """
+        cuid = get_time_indexed_cuid(key, (self._orig_time_set,))
+        return self._data[cuid]
+
     def to_serializable(self):
         """
         Convert to json-serializable object.

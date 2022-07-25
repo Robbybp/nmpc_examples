@@ -229,7 +229,7 @@ def run_mhe(
     # This flag toggles between two different objective formulations.
     # I included it just to test that we can support both.
     error_var_objective = True
-    if measurement_var_objective:
+    if error_var_objective:
         error_vars = [
             pyo.Reference(esti_blo.measurement_error_variables[idx, :])
             for idx in esti_blo.measurement_set

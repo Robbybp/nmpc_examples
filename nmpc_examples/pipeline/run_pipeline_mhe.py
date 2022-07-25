@@ -101,9 +101,6 @@ def run_mhe(
     # Load data into dynamic model
     #
     use_linker = False
-    # Need to create the plant helper regardless of whether I use it for
-    # this particular data transfer, as it is used to initialize and extend
-    # the simulation data structures.
     m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
     m_plant_helper.load_scalar_data(scalar_data)
     if use_linker:
@@ -126,8 +123,6 @@ def run_mhe(
 
     else:
         # If I want to use DynamicModelHelper:
-        #m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
-        #m_plant_helper.load_scalar_data(scalar_data)
         m_plant_helper.load_data_at_time(initial_data)
 
     # Solve as a sanity check -- should be square with zero infeasibility
@@ -273,14 +268,13 @@ def run_mhe(
     ))
     weights = {}
     for idx in esti_blo.disturbance_set:
-        slc = disturbance_vars[idx].referent
         if idx in momentum_bal_indices:
             weight = 10.0
         elif idx in material_bal_indices:
             weight = 20.0
         else:
             weight = 1.0
-        weights[pyo.ComponentUID(slc)] = weight
+        weights[esti_blo.disturbance_variables[idx, :]] = weight
     m_estimator.model_disturbance_cost = get_error_cost(
         disturbance_vars, m_estimator.fs.sample_points, weight_data=weights
     )

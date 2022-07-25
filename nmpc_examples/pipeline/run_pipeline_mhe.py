@@ -380,9 +380,6 @@ def run_mhe(
         # current measurements
         #
         last_sample_period = list(m_estimator.fs.time)[-ntfe_per_sample:]
-        # for index, var in enumerate(measured_variables):
-        #     for tp in last_sampel_period:
-        #         var[tp].set_value(blo.measurement_variables[index, estimator_tf])
         estimate_linker.transfer(tf, last_sample_period)
 
         # Load inputs to estimator

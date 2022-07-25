@@ -6,6 +6,7 @@ from pyomo.core.expr.numeric_expr import value as pyo_value
 
 from nmpc_examples.nmpc.model_linker import copy_values_at_time
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 
 iterable_scalars = (str, bytes)
 
@@ -116,7 +117,13 @@ class DynamicModelHelper(object):
                     cuid: pyo_value(expr[time])
                     for cuid, expr in zip(self.dae_expr_cuids, self.dae_expr)
                 })
-            return data
+            return ScalarData(data)
+
+    # TODO: A unified load_data method would be nice:
+    # - Branch on type (ScalarData and SeriesData handled)
+    # - Branch on key (find_component -> is_indexed)
+    # - Branch on iterable value. Iterable => load at all time
+    # This is something to do once I have tests.
 
     def load_scalar_data(self, data):
         """
@@ -140,6 +147,12 @@ class DynamicModelHelper(object):
             time_points = self.time
         else:
             time_points = list(_to_iterable(time_points))
+        if isinstance(data, ScalarData):
+            data = data.get_data()
+        else:
+            # This processes keys in the incoming data dictionary
+            # so they don't necessarily have to be CUIDs.
+            data = ScalarData(data, time_set=self.time).get_data()
         for cuid, val in data.items():
             var = self.model.find_component(cuid)
             for t in time_points:

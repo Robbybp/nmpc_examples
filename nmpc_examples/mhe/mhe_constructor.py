@@ -212,6 +212,10 @@ def get_error_cost(variables, time, weight_data=None):
     """
     # I know that these variables are indexed by time (aren't VarData), so I
     # don't need to send the time set to get_time_indexed_cuid
+    #
+    # NOTE: This name is slightly confusing. Something better might be
+    # get_cost_from_error_variables
+    # error_cost seems to imply an "error" between two quantities...
     cuids = [get_time_indexed_cuid(var) for var in variables]
     if weight_data is None:
         weight_data = {cuid: 1.0 for cuid in cuids}

@@ -86,9 +86,6 @@ def run_simulation(
     #
     m_helper.load_scalar_data(scalar_data)
     m_helper.load_data_at_time(initial_data, m.fs.time)
-    # ^ time here is an optional argument. Default is to load at all time
-    # Note here that we're loading "scalar data" into time-indexed variables
-    # at all time. Is this clear from the code?
 
     # Solve as a sanity check -- should be square with zero infeasibility
     res = ipopt.solve(m, tee=True)

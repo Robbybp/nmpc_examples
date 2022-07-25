@@ -14,6 +14,7 @@ from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
 from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 from nmpc_examples.nmpc.dynamic_data.interval_data import (
     time_series_from_interval_data,
 )
@@ -52,12 +53,26 @@ def get_tracking_cost_from_constant_setpoint(
         get_time_indexed_cuid(var, sets=(time,))
         for var in variables
     ]
-    # TODO: Weight data (and setpoint data) are user-provided and don't
-    # necessarily have CUIDs as keys. Should I processes the keys here
-    # with get_time_indexed_cuid?
     if weight_data is None:
-        #weight_data = {name: 1.0 for name in variable_names}
         weight_data = {cuid: 1.0 for cuid in cuids}
+    elif isinstance(weight_data, ScalarData):
+        weight_data = weight_data.get_data()
+    else:
+        weight_data = ScalarData(weight_data, time_set=time).get_data()
+    # Note that if we used ScalarData everywhere, we wouldn't have to
+    # process the incoming variables with get_time_indexed_cuid.
+    # We would process them on lookup, which would be slightly more work,
+    # but this function would be nicer. ScalarData would have to implement
+    # __contains__ in that case.
+
+    if isinstance(setpoint_data, ScalarData):
+        setpoint_data = setpoint_data.get_data()
+    else:
+        setpoint_data = ScalarData(setpoint_data, time_set=time).get_data()
+
+    # Note that at this point both weight_data and setpoint_data are dicts
+    # mapping CUIDs to values.
+
     for i, cuid in enumerate(cuids):
         if cuid not in setpoint_data:
             raise KeyError(
@@ -70,6 +85,78 @@ def get_tracking_cost_from_constant_setpoint(
                 "variable\n%s with ComponentUID %s" % (variables[i].name, cuid)
             )
 
+    def tracking_rule(m, t):
+        return sum(
+            weight_data[cuid] * (var[t] - setpoint_data[cuid])**2
+            for cuid, var in zip(cuids, variables)
+        )
+    tracking_expr = Expression(time, rule=tracking_rule)
+    return tracking_expr
+
+
+def _get_tracking_cost_from_constant_setpoint(
+    variables,
+    time,
+    setpoint_data,
+    weight_data=None,
+):
+    """
+    Re-implementation of the above, trying to be simpler by leveraging
+    ScalarData
+    """
+    # If provided, weight and setpoint data should be ScalarData.
+    # ... it wouldn't be too hard to convert them if they are dicts/maps...
+    if weight_data is None:
+        weight_data = ScalarData(
+            # var must be a variable because it needs to participate in an
+            # expression below. (Reference is fine. We will immediately extract
+            # the underlying slice.)
+            ComponentMap((var, 1.0) for var in variables),
+            # If time is not a set, it just won't get matched anywhere when
+            # trying to replace indices with slices in a VarData.
+            #time_set=time,
+            # Should never be used; VarData should not be supported here.
+        )
+    # What if these were ScalarData at this point?
+    # We could process variables at lookup time. This does extra processing
+    # but makes this function simpler.
+    # This defers the expense of generating cuids (from slices) to the calling
+    # of this rule. Will this be too expensive?
+    # The rule is called for every time point. This may get too expensive.
+    def tracking_rule(m, t):
+        return sum(
+            (
+                weight_data.get_data_from_key(var)
+                * (var[t] - setpoint_data.get_data_from_key(var))**2
+            ) for var in variables
+        )
+    tracking_expr = Expression(time, rule=tracking_rule)
+    return tracking_expr
+
+
+def _get_tracking_cost_from_constant_setpoint_2(
+    variables,
+    time,
+    setpoint_data,
+    weight_data=None,
+):
+    """
+    Another re-implementation. I think I like this one.
+    """
+    if weight_data is None:
+        weight_data = ScalarData(ComponentMap((var, 1.0) for var in variables))
+    if not isinstance(weight_data, ScalarData):
+        weight_data = ScalarData(weight_data)
+    if not isinstance(setpoint_data, ScalarData):
+        setpoint_data = ScalarData(setpoint_data)
+
+    # TODO: Make sure data have keys for each var
+
+    # Set up data structures so we don't have to re-process keys for each
+    # time index in the rule.
+    cuids = [get_time_indexed_cuid(var) for var in variables]
+    setpoint_data = setpoint_data.get_data()
+    weight_data = weight_data.get_data()
     def tracking_rule(m, t):
         return sum(
             weight_data[cuid] * (var[t] - setpoint_data[cuid])**2
@@ -138,6 +225,7 @@ def get_tracking_cost_expressions_from_time_varying_setpoint(
             t: get_quadratic_tracking_cost_at_time(
                 # NOTE: Here I am assuming that the first n_t points in the
                 # setpoint dict should be used...
+                # What is the alternative?
                 var, t, setpoint_dict[cuid][i], weight_data[cuid]
             ) for i, t in enumerate(time)
         } for var, cuid in zip(variables, cuids)
@@ -164,4 +252,3 @@ def get_tracking_cost_from_time_varying_setpoint(
         return sum(cost[t] for cost in tracking_costs)
     tracking_cost = Expression(time, rule=tracking_rule)
     return tracking_cost
-

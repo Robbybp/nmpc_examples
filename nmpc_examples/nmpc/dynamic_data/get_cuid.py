@@ -4,7 +4,7 @@ from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
 from pyomo.dae.flatten import get_slice_for_set
 
 
-def get_time_indexed_cuid(var, sets=None, dereference=None):
+def get_time_indexed_cuid(var, sets=None, dereference=None, context=None):
     """
     Attempts to convert the provided "var" object into a CUID with
     with wildcards.
@@ -25,7 +25,8 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
     if isinstance(var, ComponentUID):
         return var
     elif isinstance(var, (str, IndexedComponent_slice)):
-        return ComponentUID(var)
+        # TODO: Raise error if string and context is None
+        return ComponentUID(var, context=context)
     # At this point we are assuming var is a Pyomo Var or VarData object.
 
     # Is allowing dereference to be an integer worth the confusion it might
@@ -41,7 +42,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
             remaining_dereferences -= 1
             referent = var.referent
             if isinstance(referent, IndexedComponent_slice):
-                return ComponentUID(referent)
+                return ComponentUID(referent, context=context)
             else:
                 # If dereference is None, we propagate None, dereferencing
                 # until we either reach a component attached to a block
@@ -72,7 +73,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
             index = tuple(
                 get_slice_for_set(s) for s in var.index_set().subsets()
             )
-            return ComponentUID(var[index])
+            return ComponentUID(var[index], context=context)
     else:
         if sets is None:
             raise ValueError(
@@ -81,4 +82,4 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
                 % var.name
             )
         slice_ = slice_component_along_sets(var, sets)
-        return ComponentUID(slice_)
+        return ComponentUID(slice_, context=context)

@@ -10,7 +10,7 @@ from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
 )
 
 
-def get_time_indexed_cuid(var, sets=None, dereference=None):
+def get_time_indexed_cuid(var, sets=None, dereference=None, context=None):
     """
     Attempts to convert the provided "var" object into a CUID with
     with wildcards.
@@ -31,7 +31,8 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
     if isinstance(var, ComponentUID):
         return var
     elif isinstance(var, (str, IndexedComponent_slice)):
-        return ComponentUID(var)
+        # TODO: Catch error if str and context is not None
+        return ComponentUID(var, context=context)
     # At this point we are assuming var is a Pyomo Var or VarData object.
 
     # Is allowing dereference to be an integer worth the confusion it might
@@ -47,7 +48,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
             remaining_dereferences -= 1
             referent = var.referent
             if isinstance(referent, IndexedComponent_slice):
-                return ComponentUID(referent)
+                return ComponentUID(referent, context=context)
             else:
                 # If dereference is None, we propagate None, dereferencing
                 # until we either reach a component attached to a block
@@ -56,7 +57,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
                         remaining_dereferences
                 # NOTE: Calling this function recursively
                 return get_time_indexed_cuid(
-                    referent, time, dereference=dereference
+                    referent, time, dereference=dereference, context=context
                 )
         else:
             # Assume that var is indexed only by time
@@ -78,7 +79,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
             index = tuple(
                 get_slice_for_set(s) for s in var.index_set().subsets()
             )
-            return ComponentUID(var[index])
+            return ComponentUID(var[index], context=context)
     else:
         if sets is None:
             raise ValueError(
@@ -87,7 +88,7 @@ def get_time_indexed_cuid(var, sets=None, dereference=None):
                 % var.name
             )
         slice_ = slice_component_along_sets(var, sets)
-        return ComponentUID(slice_)
+        return ComponentUID(slice_, context=context)
 
 
 TimeSeriesTuple = namedtuple("TimeSeriesTuple", ["data", "time"])
@@ -99,7 +100,7 @@ class TimeSeriesData(object):
     variables.
     """
 
-    def __init__(self, data, time, time_set=None):
+    def __init__(self, data, time, time_set=None, context=None):
         """
         Arguments:
         ----------
@@ -253,13 +254,15 @@ class TimeSeriesData(object):
     #    new.project_onto_variables(variables)
     #    return new
 
-    def extract_variables(self, variables):
+    def extract_variables(self, variables, context=None):
         """
         Only keep variables specified by the user.
         """
         data = {}
         for var in variables:        
-            cuid = get_time_indexed_cuid(var, (self._orig_time_set,))
+            cuid = get_time_indexed_cuid(
+                var, (self._orig_time_set,), context=context
+            )
             data[cuid] = self._data[cuid]
         return TimeSeriesData(
             data,

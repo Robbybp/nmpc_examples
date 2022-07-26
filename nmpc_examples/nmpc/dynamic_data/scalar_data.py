@@ -47,6 +47,12 @@ class ScalarData(object):
         cuid = get_time_indexed_cuid(key, (self._orig_time_set,))
         return self._data[cuid]
 
+    def update_data(self, other):
+        if isinstance(other, ScalarData):
+            self._data.update(other.get_data())
+        else:
+            self._data.update(other)
+
     def to_serializable(self):
         """
         Convert to json-serializable object.

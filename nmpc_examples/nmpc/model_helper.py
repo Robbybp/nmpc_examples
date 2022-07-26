@@ -1,4 +1,5 @@
 from pyomo.dae.flatten import flatten_dae_components
+from pyomo.common.modeling import NOTSET
 from pyomo.core.base.var import Var
 from pyomo.core.base.expression import Expression
 from pyomo.core.base.componentuid import ComponentUID
@@ -30,7 +31,7 @@ class DynamicModelHelper(object):
 
     """
 
-    def __init__(self, model, time):
+    def __init__(self, model, time, context=NOTSET):
         """
         Construct with a model and a set. We will flatten the model
         with respect to this set and generate CUIDs with wildcards.
@@ -44,19 +45,22 @@ class DynamicModelHelper(object):
         self.scalar_expr = scalar_expr
         self.dae_expr = dae_expr
 
+        if context is NOTSET:
+            context = model
+
         # Use buffer to reduce repeated work during name/cuid generation
         cuid_buffer = {}
         self.scalar_var_cuids = [
-            ComponentUID(var, cuid_buffer=cuid_buffer)
+            ComponentUID(var, cuid_buffer=cuid_buffer, context=context)
             for var in self.scalar_vars
         ]
         self.dae_var_cuids = [
-            ComponentUID(var.referent, cuid_buffer=cuid_buffer)
+            ComponentUID(var.referent, cuid_buffer=cuid_buffer, context=context)
             for var in self.dae_vars
         ]
 
         self.dae_expr_cuids = [
-            ComponentUID(expr.referent, cuid_buffer=cuid_buffer)
+            ComponentUID(expr.referent, cuid_buffer=cuid_buffer, context=context)
             for expr in self.dae_expr
         ]
 

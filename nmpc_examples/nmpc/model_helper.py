@@ -8,6 +8,9 @@ from pyomo.core.expr.numeric_expr import value as pyo_value
 from nmpc_examples.nmpc.model_linker import copy_values_at_time
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
 from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
+from nmpc_examples.nmpc.cost_expressions import (
+    get_tracking_cost_from_constant_setpoint,
+)
 
 iterable_scalars = (str, bytes)
 
@@ -220,3 +223,29 @@ class DynamicModelHelper(object):
                 new_values.append(var[t_new].value)
             for i, t in enumerate(self.time):
                 var[t].set_value(new_values[i])
+
+    def get_tracking_cost_from_constant_setpoint(
+        self, setpoint_data, time=None, variables=None, weight_data=None
+    ):
+        if not isinstance(setpoint_data, ScalarData):
+            setpoint_data = ScalarData(setpoint_data)
+        if time is None:
+            time = self.time
+        if variables is None:
+            # Use variables provided by the setpoint.
+            # NOTE: Nondeterministic order in Python < 3.7
+            variables = [
+                self.model.find_component(key)
+                for key in setpoint_data.get_data().keys()
+            ]
+        else:
+            # Variables were provided. These could be anything. Process them
+            # to get time-indexed variables on the model.
+            variables = [
+                self.model.find_component(
+                    get_time_indexed_cuid(var, (self.time,))
+                ) for var in variables
+            ]
+        return get_tracking_cost_from_constant_setpoint(
+            variables, time, setpoint_data, weight_data=weight_data
+        )

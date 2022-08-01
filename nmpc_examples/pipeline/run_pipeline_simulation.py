@@ -1,29 +1,20 @@
 import pyomo.environ as pyo
-from pyomo.dae.flatten import flatten_dae_components
-
-import idaes.core as idaes
+import pyomo.contrib.mpc as mpc
 
 from nmpc_examples.pipeline.pipeline_model import (
     make_model,
     get_simulation_inputs,
 )
 
-from nmpc_examples.nmpc.dynamic_data import (
-    find_nearest_index,
-    interval_data_from_time_series,
-    load_inputs_into_model,
-)
-
-from nmpc_examples.nmpc.model_helper import DynamicModelHelper
-
 """
-Script for running "rolling-horizon" type simulatoin with pipeline model
+Script for running "rolling-horizon" type simulation with pipeline model.
+
 """
 
 def run_simulation(
-        simulation_horizon=20.0,
-        t_ptb=4.0,
-        ):
+    simulation_horizon=20.0,
+    t_ptb=4.0,
+):
     """
     Runs a simulation where outlet (demand) flow rate is perturbed
     at a specified time.
@@ -41,8 +32,8 @@ def run_simulation(
     t0_steady = m_steady.fs.time.first()
 
     # Make helper objects to extract data from flattened variables
-    m_helper = DynamicModelHelper(m, m.fs.time)
-    m_steady_helper = DynamicModelHelper(m_steady, m_steady.fs.time)
+    m_helper = mpc.DynamicModelInterface(m, m.fs.time)
+    m_steady_helper = mpc.DynamicModelInterface(m_steady, m_steady.fs.time)
 
     # Fix "inputs" in dynamic model: inlet pressure and outlet flow rate
     space = m.fs.pipeline.control_volume.length_domain
@@ -66,7 +57,7 @@ def run_simulation(
     # Load initial inputs into steady model
     #
     initial_inputs = input_sequence.get_data_at_time(t0_steady)
-    m_steady_helper.load_data_at_time(initial_inputs)
+    m_steady_helper.load_data(initial_inputs)
 
     # Fix inputs in steady state model
     m_steady.fs.pipeline.control_volume.flow_mass[:, xf].fix()
@@ -84,8 +75,8 @@ def run_simulation(
     #
     # Load data into dynamic model
     #
-    m_helper.load_scalar_data(scalar_data)
-    m_helper.load_data_at_time(initial_data, m.fs.time)
+    m_helper.load_data(scalar_data)
+    m_helper.load_data(initial_data, time_points=m.fs.time)
     # ^ time here is an optional argument. Default is to load at all time
     # Note here that we're loading "scalar data" into time-indexed variables
     # at all time. Is this clear from the code?
@@ -115,7 +106,7 @@ def run_simulation(
         # values at every point in time.
         # Becaucse we use an implicit discretization, we don't need
         # to apply inputs at t0.
-        m_helper.load_data_at_time(inputs_to_apply, non_initial_time)
+        m_helper.load_data(inputs_to_apply, time_points=non_initial_time)
 
         ipopt.solve(m, tee=True)
 

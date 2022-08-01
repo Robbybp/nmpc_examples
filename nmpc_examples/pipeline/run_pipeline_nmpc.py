@@ -1,13 +1,8 @@
 import pyomo.environ as pyo
-from pyomo.dae.flatten import flatten_dae_components
+import pyomo.contrib.mpc as mpc
 
 from nmpc_examples.pipeline.pipeline_model import make_model
 
-from nmpc_examples.nmpc.dynamic_data import (
-    find_nearest_index,
-    interval_data_from_time_series,
-    load_inputs_into_model,
-)
 from nmpc_examples.nmpc import (
     get_tracking_cost_from_constant_setpoint,
 )
@@ -16,7 +11,7 @@ from nmpc_examples.nmpc.input_constraints import (
 )
 
 from nmpc_examples.nmpc.model_linker import DynamicVarLinker
-from nmpc_examples.nmpc.model_helper import DynamicModelHelper
+#from nmpc_examples.nmpc.model_helper import DynamicModelHelper
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
 
 import matplotlib.pyplot as plt
@@ -27,10 +22,10 @@ Script to run an NMPC simulation with a single natural gas pipeline model.
 
 
 def run_nmpc(
-        simulation_horizon=20.0,
-        controller_horizon=20.0,
-        sample_period=2.0,
-        ):
+    simulation_horizon=20.0,
+    controller_horizon=20.0,
+    sample_period=2.0,
+):
     """
     Run a simple NMPC problem on a pipeline model.
     """
@@ -74,7 +69,9 @@ def run_nmpc(
     #
     # Extract data from setpoint model
     #
-    m_setpoint_helper = DynamicModelHelper(m_setpoint, m_setpoint.fs.time)
+    m_setpoint_helper = mpc.DynamicModelInterface(
+        m_setpoint, m_setpoint.fs.time
+    )
     setpoint_data = m_setpoint_helper.get_data_at_time(t0)
 
     #
@@ -92,37 +89,16 @@ def run_nmpc(
     #
     # Extract data from steady state model
     #
-    m_steady_helper = DynamicModelHelper(m_steady, m_steady.fs.time)
+    m_steady_helper = mpc.DynamicModelInterface(m_steady, m_steady.fs.time)
     initial_data = m_steady_helper.get_data_at_time(t0)
     scalar_data = m_steady_helper.get_scalar_variable_data()
 
     #
     # Load data into dynamic model
     #
-    use_linker = False
-    if use_linker:
-        # If I want to use DynamicVarLinker:
-        # (E.g. if we didn't know that names in the steady model would
-        # be valid for the dynamic model.)
-        steady_scalar_vars, steady_dae_vars = flatten_dae_components(
-            m_steady, m_steady.fs.time, pyo.Var
-        )
-        steady_dae_vars_in_plant = [
-            m_plant.find_component(var.referent) for var in steady_dae_vars
-        ]
-        plant_steady_linker = DynamicVarLinker(
-            steady_dae_vars,
-            steady_dae_vars_in_plant,
-            m_steady.fs.time,
-            m_plant.fs.time,
-        )
-        plant_steady_linker.transfer()
-
-    else:
-        # If I want to use DynamicModelHelper:
-        m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
-        m_plant_helper.load_scalar_data(scalar_data)
-        m_plant_helper.load_data_at_time(initial_data)
+    m_plant_helper = mpc.DynamicModelInterface(m_plant, m_plant.fs.time)
+    m_plant_helper.load_scalar_data(scalar_data)
+    m_plant_helper.load_data_at_time(initial_data)
 
     # Solve as a sanity check -- should be square with zero infeasibility
     res = ipopt.solve(m_plant, tee=True)
@@ -148,34 +124,32 @@ def run_nmpc(
     m_controller.fs.pipeline.control_volume.flow_mass[t0, xf].fix()
 
     # Make helper object
-    m_controller_helper = DynamicModelHelper(m_controller, m_controller.fs.time)
+    m_controller_helper = mpc.DynamicModelInterface(
+        m_controller, m_controller.fs.time
+    )
 
     #
     # Construct tracking objective
     #
     cv = m_controller.fs.pipeline.control_volume
     tracking_variables = [
-        pyo.Reference(cv.pressure[:, x0]),
-        pyo.Reference(cv.pressure[:, xf]),
-        pyo.Reference(cv.flow_mass[:, x0]),
-        pyo.Reference(cv.flow_mass[:, xf]),
+        cv.pressure[:, x0],
+        cv.pressure[:, xf],
+        cv.flow_mass[:, x0],
+        cv.flow_mass[:, xf],
     ]
     weight_data = {
-        "fs.pipeline.control_volume.flow_mass[*,%s]" % x0: 1e-10,
-        "fs.pipeline.control_volume.flow_mass[*,%s]" % xf: 1e-10,
-        "fs.pipeline.control_volume.pressure[*,%s]" % x0: 1e-2,
-        "fs.pipeline.control_volume.pressure[*,%s]" % xf: 1e-2,
+        cv.pressure[:, x0]: 1e-2,
+        cv.pressure[:, xf]: 1e-2,
+        cv.flow_mass[:, x0]: 1e-10,
+        cv.flow_mass[:, xf]: 1e-10,
     }
-    weight_data = {
-        # get_tracking_cost_expression expects CUIDs as keys now
-        pyo.ComponentUID(name): val for name, val in weight_data.items()
-    }
-    m_controller.tracking_cost = get_tracking_cost_from_constant_setpoint(
-        tracking_variables,
-        m_controller.fs.time,
+    tr_cost = m_controller_helper.get_tracking_cost_from_constant_setpoint(
         setpoint_data,
+        variables=tracking_variables,
         weight_data=weight_data,
     )
+    m_controller.tracking_cost = tr_cost
     m_controller.tracking_objective = pyo.Objective(
         expr=sum(m_controller.tracking_cost.values())
     )
@@ -183,17 +157,12 @@ def run_nmpc(
     #
     # Constrain inputs piecewise constant
     #
-    piecewise_constant_vars = [
-        pyo.Reference(cv.pressure[:, x0]),
-        pyo.Reference(cv.flow_mass[:, xf]),
-    ]
+    piecewise_constant_vars = [cv.pressure[:, x0], cv.flow_mass[:, xf]]
     sample_points = [
         t0 + sample_period*i for i in range(samples_per_controller+1)
     ]
-    input_set, pwc_con = get_piecewise_constant_constraints(
-        piecewise_constant_vars,
-        m_controller.fs.time,
-        sample_points,
+    input_set, pwc_con = m_controller_helper.get_piecewise_constant_constraints(
+        piecewise_constant_vars, sample_points
     )
     m_controller.input_set = input_set
     m_controller.piecewise_constant = pwc_con
@@ -207,27 +176,18 @@ def run_nmpc(
     #
     # Initialize data structure for controller inputs
     #
-    input_names = [
-        # FIXME: This doesn't work:
-        #m_controller.fs.pipeline.control_volume.flow_mass[t0,xf],
-        #m_controller.fs.pipeline.control_volume.pressure[t0,x0],
-        pyo.ComponentUID("fs.pipeline.control_volume.flow_mass[*,%s]" % xf),
-        pyo.ComponentUID("fs.pipeline.control_volume.pressure[*,%s]" % x0),
-    ]
+    inputs = [cv.flow_mass[:, xf], cv.pressure[:, x0]]
     controller_data = m_controller_helper.get_data_at_time([t0])
-    applied_inputs = controller_data.extract_variables(input_names)
+    applied_inputs = controller_data.extract_variables(inputs)
 
     #
     # Set up a "model linker" to transfer control inputs to plant
     #
-    # TODO: Should we process keys here to get the variables from
-    # a wide range of inputs? A challenge here is that we need
-    # to actually get the Pyomo variables.
     controller_input_vars = [
-        m_controller.find_component(name) for name in input_names
+        m_controller.find_component(name) for name in inputs
     ]
     plant_input_vars = [
-        m_plant.find_component(name) for name in input_names
+        m_plant.find_component(name) for name in inputs
     ]
     input_linker = DynamicVarLinker(
         controller_input_vars,
@@ -240,13 +200,13 @@ def run_nmpc(
     # We will send values of all variables from plant to controller,
     # even though we only need to send those that are fixed as initial
     # conditions.
+    plant_dae_vars = m_plant_helper.get_indexed_variables()
     plant_vars_in_controller = [
         m_controller.find_component(var.referent)
-        for var in m_plant_helper.dae_vars
+        for var in plant_dae_vars
     ]
     init_cond_linker = DynamicVarLinker(
-        m_plant_helper.dae_vars,
-        plant_vars_in_controller,
+        plant_dae_vars, plant_vars_in_controller
     )
 
     for i in range(n_cycles):
@@ -267,7 +227,7 @@ def run_nmpc(
         #
         controller_data = m_controller_helper.get_data_at_time([ts])
         # Extract only the inputs
-        extracted_inputs = controller_data.extract_variables(input_names)
+        extracted_inputs = controller_data.extract_variables(inputs)
         # Shift time points from "controller time" to "simulation time"
         extracted_inputs.shift_time_points(sim_t0)
 

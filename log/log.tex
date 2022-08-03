@@ -10,6 +10,24 @@
 \begin{document}
 \maketitle
 
+\section{August 2, 2022}
+
+Data structure for interval data.
+This is used all the time when setting a target demand sequence.
+Or a piecewise-constant setpoint, presumably
+\begin{itemize}
+  \item Maps cuids to lists of values.
+  \item The time list is now an interval list.
+    List of (low, high) tuples.
+  \item Construct from (data, interval list).
+    Or from TimeSeriesData?
+  \item Should probably just have helper functions to convert between
+    series data and interval data.
+  \item Then loading into model can happen via \texttt{load\_data}.
+\end{itemize}
+Since this is so important, I should probably update all the gas distribution
+NMPC code to use a new IntervalData data structure.
+
 \section{August 1, 2022}
 
 Update pipeline open loop and NMPC examples to import data structures

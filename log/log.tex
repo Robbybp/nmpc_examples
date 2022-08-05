@@ -10,6 +10,26 @@
 \begin{document}
 \maketitle
 
+\section{August 4, 2022}
+
+After some consternation, have updated tests to use new
+data structure and functions.
+Now I should update the code in pipeline-examples.
+{\bf Done.} That was pretty easy.
+Now I should update the code in \texttt{gas\_distribution}
+
+\medskip
+
+Have tested the code in the \texttt{pyomo-update} branch of
+\texttt{gas\_distribution}.
+At this point the code is almost ready. I just need to make sure
+things are (a) reasonable and (b) tested.
+\begin{itemize}
+  \item Change \texttt{get\_time\_indexed\_cuid} to
+    \texttt{get\_indexed\_cuid}
+  \item Completely remove old interval data structure
+\end{itemize}
+
 \section{August 3, 2022}
 
 Data structure for interval data.
@@ -27,6 +47,7 @@ Now I need to test.
   \item Use in \texttt{pipeline-examples} branch
   \item Use in \texttt{gas\_distribution} repo (some new branch, probably)
 \end{itemize}
+Then, after this, I can finish the IntervalData class.
 
 \section{August 2, 2022}
 

@@ -1,14 +1,18 @@
 import pyomo.environ as pyo
 from pyomo.dae import ContinuousSet
 from pyomo.dae.flatten import flatten_dae_components
+from pyomo.common.collections import ComponentMap
 
 from nmpc_examples.pipeline.pipeline_model import make_model
 
 from nmpc_examples.mhe.mhe_constructor import (
     construct_measurement_variables_constraints,
     construct_disturbed_model_constraints,
-    get_error_disturbance_cost,
+    get_error_cost,
     activate_disturbed_constraints_based_on_original_constraints,
+)
+from nmpc_examples.nmpc.cost_expressions import (
+    get_tracking_cost_from_time_varying_setpoint,
 )
 
 from nmpc_examples.nmpc.model_linker import DynamicVarLinker
@@ -22,6 +26,23 @@ import matplotlib.pyplot as plt
 """
 Script to run an MHE simulation with a single natural gas pipeline model.
 """
+
+
+def get_control_inputs(sample_period=2.0):
+    n_samples = 2
+    control_input_time = [i*sample_period for i in range(n_samples)]
+    control_input_data = {
+        'fs.pipeline.control_volume.flow_mass[*,1.0]': [
+            553003.1393240632, 535472.4292275416
+        ],
+        'fs.pipeline.control_volume.pressure[*,0]': [
+            58.905880452751845, 58.92036532907178
+        ],
+    }
+    series = TimeSeriesData(control_input_data, control_input_time)
+    # Note that if we want a json representation of this data, we
+    # can always call json.dump(fp, series.to_serializable()).
+    return series
 
 
 def run_mhe(
@@ -80,6 +101,8 @@ def run_mhe(
     # Load data into dynamic model
     #
     use_linker = False
+    m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
+    m_plant_helper.load_scalar_data(scalar_data)
     if use_linker:
         # If I want to use DynamicVarLinker:
         # (E.g. if we didn't know that names in the steady model would
@@ -100,8 +123,6 @@ def run_mhe(
 
     else:
         # If I want to use DynamicModelHelper:
-        m_plant_helper = DynamicModelHelper(m_plant, m_plant.fs.time)
-        m_plant_helper.load_scalar_data(scalar_data)
         m_plant_helper.load_data_at_time(initial_data)
 
     # Solve as a sanity check -- should be square with zero infeasibility
@@ -200,31 +221,64 @@ def run_mhe(
     # Construct least square objective to minimize measurement errors
     # and model disturbances
     #
-    measurement_error_weights = {
-        pyo.ComponentUID(var.referent): 1.0
-        for var in measured_variables
-    }
-    m_estimator.measurement_error_cost = get_error_disturbance_cost(
-        m_estimator.fs.time,
-        m_estimator.fs.sample_points,
-        measured_variables,
-        esti_blo.measurement_error_variables,
-        measurement_error_weights,
-    )
+    # This flag toggles between two different objective formulations.
+    # I included it just to test that we can support both.
+    error_var_objective = True
+    if error_var_objective:
+        error_vars = [
+            pyo.Reference(esti_blo.measurement_error_variables[idx, :])
+            for idx in esti_blo.measurement_set
+        ]
+        # This cost function penalizes the square of the "error variables"
+        m_estimator.measurement_error_cost = get_error_cost(
+            error_vars, m_estimator.fs.sample_points
+        )
+    else:
+        measurement_map = ComponentMap(
+            (var, [
+                esti_blo.measurement_variables[i, t]
+                for t in m_estimator.fs.sample_points
+            ])
+            for i, var in enumerate(measured_variables)
+        )
+        setpoint_data = TimeSeriesData(
+            measurement_map, m_estimator.fs.sample_points
+        )
+        # This cost function penalizes the difference between measurable
+        # estimates and their corresponding measurements.
+        error_cost = get_tracking_cost_from_time_varying_setpoint(
+            measured_variables, m_estimator.fs.sample_points, setpoint_data
+        )
+        m_estimator.measurement_error_cost = error_cost
 
-    model_disturbance_weights = {
-        **{pyo.ComponentUID(con.referent): 10.0
-           for con in flatten_momentum_balance},
-        **{pyo.ComponentUID(con.referent): 20.0
-           for con in flatten_material_balance},
-    }
-    m_estimator.model_disturbance_cost = get_error_disturbance_cost(
-        m_estimator.fs.time,
-        m_estimator.fs.sample_points,
-        model_constraints_to_be_disturbed,
-        esti_blo.disturbance_variables,
-        model_disturbance_weights,
+    #
+    # Construct disturbance cost expression
+    #
+    disturbance_vars = [
+        pyo.Reference(esti_blo.disturbance_variables[idx, :])
+        for idx in esti_blo.disturbance_set
+    ]
+
+    # We know what order we sent constraints to the disturbance constraint
+    # function, so we know which indices correspond to which balance equations
+    momentum_bal_indices = set(range(len(flatten_momentum_balance)))
+    material_bal_indices = set(range(
+        len(flatten_momentum_balance),
+        len(flatten_momentum_balance) + len(flatten_material_balance),
+    ))
+    weights = {}
+    for idx in esti_blo.disturbance_set:
+        if idx in momentum_bal_indices:
+            weight = 10.0
+        elif idx in material_bal_indices:
+            weight = 20.0
+        else:
+            weight = 1.0
+        weights[esti_blo.disturbance_variables[idx, :]] = weight
+    m_estimator.model_disturbance_cost = get_error_cost(
+        disturbance_vars, m_estimator.fs.sample_points, weight_data=weights
     )
+    ###
 
     m_estimator.squred_error_disturbance_objective = pyo.Objective(
         expr=(sum(m_estimator.measurement_error_cost.values()) +
@@ -275,15 +329,7 @@ def run_mhe(
     #
     # Load control input data for simulation
     #
-    directory = os.path.abspath(os.path.dirname(__file__))
-    filepath = os.path.join(directory, "control_input_data.json")
-    with open(filepath, "r") as fr:
-        control_data = json.load(fr)
-
-    control_input_time = [i*sample_period for i in range(len(control_data))]
-    control_inputs = TimeSeriesData(
-        control_data, control_input_time, time_set=None
-    )
+    control_inputs = get_control_inputs()
 
     for i in range(n_cycles):
         # time.first() in the model corresponds to sim_t0 in "simulation time"
@@ -334,9 +380,6 @@ def run_mhe(
         # current measurements
         #
         last_sample_period = list(m_estimator.fs.time)[-ntfe_per_sample:]
-        # for index, var in enumerate(measured_variables):
-        #     for tp in last_sampel_period:
-        #         var[tp].set_value(blo.measurement_variables[index, estimator_tf])
         estimate_linker.transfer(tf, last_sample_period)
 
         # Load inputs to estimator

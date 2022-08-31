@@ -207,63 +207,26 @@ def activate_disturbed_constraints_based_on_original_constraints(
                 disturbance_var[index, spt].fix(0.0)
 
 
-def get_error_disturbance_cost(
-    time,
-    sample_points,
-    components,
-    error_dist_var,
-    weight_data=None,
-):
+def get_error_cost(variables, time, weight_data=None):
     """
-    #TODO: This function is similar to "get_tracking_cost_from_constant_setpoint",
-    #Should I merge this one to that one?
-    This function return a squared cost expression for measurement errors or
-    model disturbances.
-
-    Arguments
-    ---------
-    time: iterable
-        Time set which indexes components (measured variables or
-        model constraints)
-    sample_points: iterable
-        Set of sample points
-    components: List
-        List of components (measured variables or model constraints)
-    error_dist_var: Pyomo Var
-        Variable of measurement error
-        from "construct_measurement_variables_constraints"
-        or model disturbance
-        from "construct_disturbed_model_constraints"
-    weight_data: dict
-        Optional. Maps variable names to squared cost weights. If not provided,
-        weights of one are used.
-
-    Returns
-    -------
-    Pyomo Expression, indexed by sample_points, containing the sum of squared
-    errors or disturbances.
-
     """
-    component_cuids = [
-        get_time_indexed_cuid(comp, sets=(time,))
-        for comp in components
-    ]
-
+    # I know that these variables are indexed by time (aren't VarData), so I
+    # don't need to send the time set to get_time_indexed_cuid
+    #
+    # NOTE: This name is slightly confusing. Something better might be
+    # get_cost_from_error_variables
+    # error_cost seems to imply an "error" between two quantities...
+    cuids = [get_time_indexed_cuid(var) for var in variables]
     if weight_data is None:
-        weight_data = {cuid: 1.0 for cuid in component_cuids}
-    for i, cuid in enumerate(component_cuids):
-        if cuid not in weight_data:
-            raise KeyError(
-                "Error/disturbance weight dictionary does not contain a key for "
-                "variable\n%s with ComponentUID %s" % (components[i].name, cuid)
-            )
-
-    def error_disturbance_rule(m, spt):
-        return sum(
-            weight_data[cuid] * error_dist_var[index, spt]**2
-            for index, cuid in enumerate(component_cuids)
-        )
-    error_disturbance_cost = Expression(
-        sample_points, rule=error_disturbance_rule
+        weight_data = {cuid: 1.0 for cuid in cuids}
+    setpoint_data = {cuid: 0.0 for cuid in cuids}
+    from nmpc_examples.nmpc.cost_expressions import (
+        get_tracking_cost_from_constant_setpoint,
     )
-    return error_disturbance_cost
+    error_cost = get_tracking_cost_from_constant_setpoint(
+        variables,
+        time,
+        setpoint_data,
+        weight_data=weight_data,
+    )
+    return error_cost

@@ -8,86 +8,10 @@ from pyomo.dae.flatten import get_slice_for_set
 from nmpc_examples.nmpc.dynamic_data.find_nearest_index import (
     find_nearest_index,
 )
-
-
-def get_time_indexed_cuid(var, sets=None, dereference=None):
-    """
-    Attempts to convert the provided "var" object into a CUID with
-    with wildcards.
-
-    Arguments
-    ---------
-    var:
-        Object to process
-    time: Set
-        Set to use if slicing a vardata object
-    dereference: None or int
-        Number of times we may access referent attribute to recover a
-        "base component" from a reference.
-
-    """
-    # TODO: Does this function have a good name?
-    # Should this function be generalized beyond a single indexing set?
-    if isinstance(var, ComponentUID):
-        return var
-    elif isinstance(var, (str, IndexedComponent_slice)):
-        return ComponentUID(var)
-    # At this point we are assuming var is a Pyomo Var or VarData object.
-
-    # Is allowing dereference to be an integer worth the confusion it might
-    # add?
-    if dereference is None:
-        # Does this branch make sense? If given an unattached component,
-        # we dereference, otherwise we don't dereference.
-        remaining_dereferences = int(var.parent_block() is None)
-    else:
-        remaining_dereferences = int(dereference)
-    if var.is_indexed():
-        if var.is_reference() and remaining_dereferences:
-            remaining_dereferences -= 1
-            referent = var.referent
-            if isinstance(referent, IndexedComponent_slice):
-                return ComponentUID(referent)
-            else:
-                # If dereference is None, we propagate None, dereferencing
-                # until we either reach a component attached to a block
-                # or reach a non-reference component.
-                dereference = dereference if dereference is None else\
-                        remaining_dereferences
-                # NOTE: Calling this function recursively
-                return get_time_indexed_cuid(
-                    referent, time, dereference=dereference
-                )
-        else:
-            # Assume that var is indexed only by time
-            # TODO: Should we call slice_component_along_sets here as well?
-            # To cover the case of b[t0].var, where var is indexed
-            # by a set we care about, and we also care about time...
-            # But then maybe we should slice only the sets we care about...
-            # Don't want to do anything with these sets unless we're
-            # presented with a vardata...
-            #
-            # Should we call flatten.slice_component_along_sets? Then we
-            # might need to return/yield multiple components here...
-            # I like making this a "simple" function. The caller can call
-            # slice_component_along_set on their input data if they expect
-            # to have components indexed by multiple sets.
-            #
-            # TODO: Assert that we're only indexed by the specified set(s)?
-            # (If these sets are provided, of course...)
-            index = tuple(
-                get_slice_for_set(s) for s in var.index_set().subsets()
-            )
-            return ComponentUID(var[index])
-    else:
-        if sets is None:
-            raise ValueError(
-                "A ComponentData %s was provided but no set. We need to know\n"
-                "what set this component should be indexed by."
-                % var.name
-            )
-        slice_ = slice_component_along_sets(var, sets)
-        return ComponentUID(slice_)
+from nmpc_examples.nmpc.dynamic_data.get_cuid import (
+    get_time_indexed_cuid,
+)
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 
 
 TimeSeriesTuple = namedtuple("TimeSeriesTuple", ["data", "time"])
@@ -99,7 +23,7 @@ class TimeSeriesData(object):
     variables.
     """
 
-    def __init__(self, data, time, time_set=None):
+    def __init__(self, data, time, time_set=None, context=None):
         """
         Arguments:
         ----------
@@ -112,13 +36,17 @@ class TimeSeriesData(object):
         # a time-indexed CUID. We need to know what set to slice.
         self._orig_time_set = time_set
         self._time = list(time)
+        # When looking up a value at a particular time point, we will use
+        # this map to try and the index of the time point. If this lookup
+        # fails, we will use binary search-within-tolerance to attempt to
+        # find a point that is close enough.
         self._time_idx_map = {t: idx for idx, t in enumerate(time)}
 
         if time is not None:
             # First make sure provided lists of variable data have the
             # same lengths as the provided time list.
             for key, data_list in data.items():
-                # What if time is a number. Do I ever want to support that
+                # What if time is a number? Do I ever want to support that
                 # here?
                 if len(data_list) != len(time):
                     raise ValueError(
@@ -146,6 +74,13 @@ class TimeSeriesData(object):
         """
         return self._data
 
+    def get_data_from_key(self, key):
+        """
+        Returns the list of values corresponding to the provided key.
+        """
+        cuid = get_time_indexed_cuid(key, (self._orig_time_set,))
+        return self._data[cuid]
+
     def get_data_at_time_indices(self, indices):
         """
         Returns data at the specified index or indices of this object's list
@@ -163,9 +98,9 @@ class TimeSeriesData(object):
             return TimeSeriesData(data, time_list, time_set=time_set)
         except TypeError:
             # indices is a scalar
-            return {
+            return ScalarData({
                 cuid: values[indices] for cuid, values in self._data.items()
-            }
+            })
 
     # TODO: Should there be a get_scalar_data_at_time method that replaces
     # the functionality of get_data_at_time with a scalar time point?
@@ -253,13 +188,15 @@ class TimeSeriesData(object):
     #    new.project_onto_variables(variables)
     #    return new
 
-    def extract_variables(self, variables):
+    def extract_variables(self, variables, context=None):
         """
         Only keep variables specified by the user.
         """
         data = {}
         for var in variables:        
-            cuid = get_time_indexed_cuid(var, (self._orig_time_set,))
+            cuid = get_time_indexed_cuid(
+                var, (self._orig_time_set,), context=context
+            )
             data[cuid] = self._data[cuid]
         return TimeSeriesData(
             data,

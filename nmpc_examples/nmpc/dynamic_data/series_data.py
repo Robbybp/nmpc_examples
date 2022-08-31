@@ -23,7 +23,7 @@ class TimeSeriesData(object):
     variables.
     """
 
-    def __init__(self, data, time, time_set=None):
+    def __init__(self, data, time, time_set=None, context=None):
         """
         Arguments:
         ----------
@@ -188,13 +188,15 @@ class TimeSeriesData(object):
     #    new.project_onto_variables(variables)
     #    return new
 
-    def extract_variables(self, variables):
+    def extract_variables(self, variables, context=None):
         """
         Only keep variables specified by the user.
         """
         data = {}
         for var in variables:        
-            cuid = get_time_indexed_cuid(var, (self._orig_time_set,))
+            cuid = get_time_indexed_cuid(
+                var, (self._orig_time_set,), context=context
+            )
             data[cuid] = self._data[cuid]
         return TimeSeriesData(
             data,

@@ -14,6 +14,7 @@ from pyomo.core.base.componentuid import ComponentUID
 from pyomo.core.base.expression import Expression
 
 from nmpc_examples.nmpc.dynamic_data.series_data import get_time_indexed_cuid
+from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
 
 
 def get_quadratic_penalty_at_time(var, t, target, weight=None):
@@ -31,6 +32,10 @@ def get_penalty_expressions_at_time(
 ):
     """
     """
+    if not isinstance(target_data, ScalarData):
+        target_data = ScalarData(target_data)
+    target_data = target_data.get_data()
+
     cuids = [
         get_time_indexed_cuid(var, sets=(time,))
         for var in variables

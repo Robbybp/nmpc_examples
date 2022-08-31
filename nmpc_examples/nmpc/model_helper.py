@@ -1,4 +1,5 @@
 from pyomo.dae.flatten import flatten_dae_components
+from pyomo.common.modeling import NOTSET
 from pyomo.core.base.var import Var
 from pyomo.core.base.expression import Expression
 from pyomo.core.base.componentuid import ComponentUID
@@ -7,6 +8,9 @@ from pyomo.core.expr.numeric_expr import value as pyo_value
 from nmpc_examples.nmpc.model_linker import copy_values_at_time
 from nmpc_examples.nmpc.dynamic_data.series_data import TimeSeriesData
 from nmpc_examples.nmpc.dynamic_data.scalar_data import ScalarData
+from nmpc_examples.nmpc.cost_expressions import (
+    get_tracking_cost_from_constant_setpoint,
+)
 
 iterable_scalars = (str, bytes)
 
@@ -31,7 +35,7 @@ class DynamicModelHelper(object):
 
     """
 
-    def __init__(self, model, time):
+    def __init__(self, model, time, context=NOTSET):
         """
         Construct with a model and a set. We will flatten the model
         with respect to this set and generate CUIDs with wildcards.
@@ -45,19 +49,22 @@ class DynamicModelHelper(object):
         self.scalar_expr = scalar_expr
         self.dae_expr = dae_expr
 
+        if context is NOTSET:
+            context = model
+
         # Use buffer to reduce repeated work during name/cuid generation
         cuid_buffer = {}
         self.scalar_var_cuids = [
-            ComponentUID(var, cuid_buffer=cuid_buffer)
+            ComponentUID(var, cuid_buffer=cuid_buffer, context=context)
             for var in self.scalar_vars
         ]
         self.dae_var_cuids = [
-            ComponentUID(var.referent, cuid_buffer=cuid_buffer)
+            ComponentUID(var.referent, cuid_buffer=cuid_buffer, context=context)
             for var in self.dae_vars
         ]
 
         self.dae_expr_cuids = [
-            ComponentUID(expr.referent, cuid_buffer=cuid_buffer)
+            ComponentUID(expr.referent, cuid_buffer=cuid_buffer, context=context)
             for expr in self.dae_expr
         ]
 
@@ -216,3 +223,29 @@ class DynamicModelHelper(object):
                 new_values.append(var[t_new].value)
             for i, t in enumerate(self.time):
                 var[t].set_value(new_values[i])
+
+    def get_tracking_cost_from_constant_setpoint(
+        self, setpoint_data, time=None, variables=None, weight_data=None
+    ):
+        if not isinstance(setpoint_data, ScalarData):
+            setpoint_data = ScalarData(setpoint_data)
+        if time is None:
+            time = self.time
+        if variables is None:
+            # Use variables provided by the setpoint.
+            # NOTE: Nondeterministic order in Python < 3.7
+            variables = [
+                self.model.find_component(key)
+                for key in setpoint_data.get_data().keys()
+            ]
+        else:
+            # Variables were provided. These could be anything. Process them
+            # to get time-indexed variables on the model.
+            variables = [
+                self.model.find_component(
+                    get_time_indexed_cuid(var, (self.time,))
+                ) for var in variables
+            ]
+        return get_tracking_cost_from_constant_setpoint(
+            variables, time, setpoint_data, weight_data=weight_data
+        )

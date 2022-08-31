@@ -10,6 +10,159 @@
 \begin{document}
 \maketitle
 
+\section{July 28, 2022}
+
+My immediate goal is to copy the code into Pyomo contrib and get doctests working.
+Then I should add boilerplate everywhere, then write tests.
+\begin{itemize}
+  \item Doctests work
+  \item Boilerplate added
+  \item Now I want to re-organize the repository. {\bf Done.}
+  \item Have also changed the name of the helper class to
+    \texttt{DynamicModelInterface}.
+  \item Now I need to start writing tests. Start with data classes
+\end{itemize}
+
+\section{July 27, 2022}
+
+Some small updates to \texttt{scalar-data} branch.
+Should really merge this branch with main. But then
+if Sakshi pulls from github, her code will break.
+Real solution would be to make a ``release'' tag for Sakshi
+to work off of while I continue to update main.
+
+\medskip
+
+Have written introductory documentation for dynamic data
+package. Now I need to start moving code into contrib and make
+sure doctests pass.
+
+\section{July 26, 2022}
+Testing the scripts in \texttt{gas\_distribution}.
+\begin{itemize}
+  \item Do they work?
+  \item Can I use \texttt{ScalarData} anywhere? 
+\end{itemize}
+\begin{enumerate}
+  \item \texttt{run\_demand\_optimizations.py}
+    \begin{itemize}
+      \item Works
+    \end{itemize}
+  \item \texttt{run\_dynopt\_24h.py}
+    \begin{itemize}
+      \item Doesn't work due to ``ScalarData is not iterable''
+    \end{itemize}
+\end{enumerate}
+
+Have gotten all the scripts in this directory to work.
+Now I need to
+\begin{itemize}
+  \item Decide where this code should live (probably Pyomo)
+  \item Decide how much of it I should commit initially (probably all)
+  \item Copy the code into this location and write tests.
+    (Whenever I copy something over, import from this location in
+    \texttt{nmpc\_examples}.)
+\end{itemize}
+I would like to commit this code somewhere then create a couple examples of use
+in IDAES-Examples. Also, as I would like others to use this, I should write
+some documentation.
+
+\section{July 25, 2022}
+Of the todo's from June 9, what have I done and what do I still need to do?
+
+\subsection{Individual variable data}
+Did not add a method to get the data (number or list) for a particular
+variable. Have added this now -- \texttt{get\_data\_from\_key}
+in \texttt{ScalarData} and \texttt{SeriesData}.
+
+Don't know exactly where I will use this\ldots
+
+\subsection{Unified \texttt{load\_data} method}
+In \texttt{DynamicModelHelper} class. This can wait until I have tests,
+so I can make sure I don't break anything.
+
+\subsection{Constant setpoint tracking cost}
+Could be made simpler, but this would defer processing slices to
+get CUIDs to inside the rule, which I don't like.
+
+Narrower goal: refactor to make code more clear.
+This will likely require a contains method for ScalarData
+(and therefore a contains method for SeriesData).
+I'm leaning towards \texttt{contains\_key}
+and \texttt{contains\_time} methods, rather than
+\texttt{\_\_contains\_\_}.
+
+\medskip
+
+{\bf Aside:} Can I use a model keyword then find the variables
+with find component?
+
+\subsection{Model helper}
+API to get the DAE vars or their slices/CUIDs?
+
+\subsection{Testing this functionality}
+My main goals should be
+\begin{enumerate}
+  \item Make sure I don't break anything
+  \item Have some examples of these data structures ready for when I want
+    others to use them.
+\end{enumerate}
+
+\begin{itemize}
+  \item NMPC and open-loop have been tested.
+  \item KH's MHE has been tested.
+  \item Now I need to test the code in \texttt{gas\_distribution}
+\end{itemize}
+
+\section{June 9, 2022}
+Additional functionality for these data structures before they are
+ready for (tests and) a PR.
+\begin{itemize}
+  \item Data structure for scalar data (for a time-indexed variable)
+    \begin{itemize}
+      \item This is useful especially for weights, which are typically
+	user-provided
+      \item But setpoint targets can be user-provided as well
+      \item This should be the returned type for all my
+	\texttt{get\_scalar\_data} functions
+      \item How do I test once I have something?
+    \end{itemize}
+  \item Method to get the data (scalar or list) for a particular
+    variable (like \texttt{get\_data().\_\_getitem\_\_} but it processes
+    the key with \texttt{get\_time\_indexed\_cuid})
+\end{itemize}
+
+After adding a data structure for scalar data, I need to update
+the following functions to return/accept it:
+\begin{itemize}
+  \item \texttt{get\_tracking\_cost\_from\_constant\_setpoint}
+    -- Uses ScalarData. Could be made more simple by processing keys
+    in ScalarData rather than the function itself
+  \item \texttt{get\_data\_at\_time}
+  \item \texttt{load\_data\_at\_time}
+    -- Both of these have been done as well.
+\end{itemize}
+
+Test new functionality on:
+\begin{itemize}
+  \item My NMPC and open-loop simulations (in \texttt{nmpc\_examples})
+  \item Kuan-Han's MHE simulation (in KH's branch of \texttt{nmpc\_examples})
+  \item In scripts for pipeline NMPC
+\end{itemize}
+
+\section{June 1, 2022}
+
+Kuan-Han's MHE example appears to work fine using my data structures
+and utility functions wherever they make sense (to me).
+Now I would like to add some additional useful functionality.
+\begin{itemize}
+  \item Data structure for scalar data associated with time-indexed variables.
+  \item Method to get the list of data points associated with a particular
+    variable. Like a \texttt{getitem}, but that processes the key to convert
+    it to ``time-indexed CUID.''
+  \item Maybe some functions for adding noise to data.
+\end{itemize}
+
 \section{June 1, 2022}
 \begin{itemize}
   \item I can use a small, simple \texttt{get\_error\_cost} function in place

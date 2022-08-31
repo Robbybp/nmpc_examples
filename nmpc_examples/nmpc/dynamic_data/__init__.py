@@ -19,3 +19,8 @@ from .interval_data import (
 from .find_nearest_index import (
     find_nearest_index,
 )
+
+__doc__ = (
+    """A module of data structures for storing values associated with """
+    """time-indexed variables."""
+)

@@ -13,6 +13,17 @@ see [this code](https://github.com/IDAES/publications/tree/main/parker_jpc2023),
 which produces the chemical looping case study results for the paper referenced
 below.
 
+## Installation
+
+This package should be installed into a Python environment with
+```python
+pip install .
+```
+or
+```python
+pip install -e .
+```
+
 ## Citation
 
 If you find these examples or data structures useful for research, please cite

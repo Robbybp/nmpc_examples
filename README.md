@@ -16,11 +16,11 @@ below.
 ## Installation
 
 This package should be installed into a Python environment with
-```python
+```bash
 pip install .
 ```
 or
-```python
+```bash
 pip install -e .
 ```
 

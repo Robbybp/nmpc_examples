@@ -110,6 +110,13 @@ My main goals should be
 
 \begin{itemize}
   \item NMPC and open-loop have been tested.
+  \item KH's MHE code.
+    \begin{itemize}
+      \item Tests pass.
+      \item Do the new data structure buy me anything here?
+      \item They make the code for sending weights to the disturbance objective
+        slightly easier to understand.
+    \end{itemize}
   \item KH's MHE has been tested.
   \item Now I need to test the code in \texttt{gas\_distribution}
 \end{itemize}
@@ -161,6 +168,45 @@ Now I would like to add some additional useful functionality.
     variable. Like a \texttt{getitem}, but that processes the key to convert
     it to ``time-indexed CUID.''
   \item Maybe some functions for adding noise to data.
+\end{itemize}
+
+\section{June 1, 2022}
+\begin{itemize}
+  \item I can use a small, simple \texttt{get\_error\_cost} function in place
+    of KH's \texttt{get\_error\_disturbance\_cost}. Now I should delete that
+    old function.
+  \item It seems like my setpoint tracking cost function holds up to this
+    challenge.
+  \item What if we wanted a time-varying setpoint between measurements
+    and estimated measurable variables? I should probably test this?
+    -- {\bf Done.} Using a time-varying tracking cost between measurements
+    and estimated measurable variables seems to work.
+  \item Regardless, \texttt{get\_error\_disturbance\_cost} can go.
+\end{itemize}
+
+\section{May 31, 2022}
+
+Modifying KH's branch to make sure it makes use of my existing tools whenever
+possible.
+\begin{itemize}
+  \item The test runs quickly. I can now make changes and run it to make sure I
+    didn't horribly break anything.
+  \item Remove json file for control inputs. -- {\bf Done.}
+  \item Make sure code works with both model linker and model helper for data
+    transfer between models -- {\bf Done.} The problem was that I wasn't
+    initializing the scalar variables.
+  \item Now I need to replace \texttt{get\_error\_disturbance\_cost} with
+    the time-varying setpoint tracking cost.
+\end{itemize}
+
+Recall that this all falls into the category of making sure my data structures
+hold up and can be used in KH's example. I need to make sure they can be used
+everywhere I think they can be used.
+These modifications would be sufficient for a PR into KH's branch. Then another
+PR could incorporate whatever new functionality I decide to add.
+Functionality to add:
+\begin{itemize}
+  \item Data structure for scalar data for time-indexed variable.
 \end{itemize}
 
 \section{Mar 17, 2022}
